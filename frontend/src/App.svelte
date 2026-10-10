@@ -5,7 +5,7 @@
   import TabBar from './components/TabBar.svelte';
   import VisualEditor from './components/VisualEditor.svelte';
   import Editor from './components/Editor.svelte';
-  import ResponseViewer from './components/ResponseViewer.svelte';
+  import ResponseViewer, { type TimelineEntry } from './components/ResponseViewer.svelte';
   import EnvironmentModal from './components/EnvironmentModal.svelte';
   import ConflictModal from './components/ConflictModal.svelte';
   import InteropModal from './components/InteropModal.svelte';
@@ -17,9 +17,11 @@
   let editorMode = $state<'visual' | 'dsl'>('visual');
   let isSending = $state(false);
 
-  // Resizable pane dimensions
+  // Resizable pane dimensions & layout
   let sidebarWidth = $state(260); // px
-  let requestPanePercent = $state(52); // percentage height of request pane vs response pane
+  let requestPanePercent = $state(50); // percentage dimension of request pane vs response pane
+  let studioLayout = $state<'vertical' | 'horizontal'>('vertical');
+  let timeline = $state<TimelineEntry[]>([]);
 
   // Modals state
   let isEnvModalOpen = $state(false);
@@ -38,12 +40,12 @@
     sidebarWidth = Math.max(180, Math.min(500, sidebarWidth + delta));
   }
 
-  function handleVerticalSplitResize(delta: number) {
+  function handleSplitResize(delta: number) {
     const mainContainer = document.getElementById('studio-split-container');
     if (!mainContainer) return;
-    const containerHeight = mainContainer.clientHeight;
-    if (containerHeight <= 0) return;
-    const deltaPercent = (delta / containerHeight) * 100;
+    const totalDim = studioLayout === 'vertical' ? mainContainer.clientHeight : mainContainer.clientWidth;
+    if (totalDim <= 0) return;
+    const deltaPercent = (delta / totalDim) * 100;
     requestPanePercent = Math.max(20, Math.min(80, requestPanePercent + deltaPercent));
   }
 
@@ -85,8 +87,24 @@
           headers: report.response_headers || {},
           body: bodyStr,
           timestamp: new Date().toLocaleTimeString(),
+          assertions: report.assertions || [],
+          logs: report.logs || [],
         };
         activeReq.isDirty = false;
+
+        timeline = [
+          {
+            id: Math.random().toString(36).substring(2, 9),
+            timestamp: new Date().toLocaleTimeString(),
+            status: activeReq.response.status,
+            statusText: activeReq.response.statusText,
+            durationMs: activeReq.response.durationMs,
+            sizeBytes: activeReq.response.sizeBytes,
+            method: activeReq.method,
+            url: activeReq.url
+          },
+          ...timeline
+        ];
       }
     } catch (err: any) {
       if (activeReq) {
@@ -98,6 +116,14 @@
           headers: {},
           body: JSON.stringify({ error: err?.message || String(err) }, null, 2),
           timestamp: new Date().toLocaleTimeString(),
+          assertions: [
+            {
+              name: 'Request execution',
+              passed: false,
+              error: err?.message || String(err)
+            }
+          ],
+          logs: []
         };
       }
     } finally {
@@ -248,10 +274,13 @@
             </span>
           </div>
 
-          <!-- Resizable Vertical Split Container: Request Panel (Top) vs Response Panel (Bottom) -->
-          <div id="studio-split-container" class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+          <!-- Resizable Split Container (Vertical Stacked vs Horizontal Side-by-Side) -->
+          <div id="studio-split-container" class="flex-1 {studioLayout === 'vertical' ? 'flex flex-col' : 'flex flex-row'} overflow-hidden bg-slate-950">
             <!-- Request Pane -->
-            <div style="height: {requestPanePercent}%;" class="overflow-hidden flex flex-col p-2">
+            <div
+              style="{studioLayout === 'vertical' ? `height: ${requestPanePercent}%;` : `width: ${requestPanePercent}%;`}"
+              class="overflow-hidden flex flex-col p-2 {studioLayout === 'horizontal' ? 'pr-0' : ''}"
+            >
               {#if editorMode === 'visual'}
                 <div class="h-full border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
                   <VisualEditor />
@@ -268,14 +297,27 @@
 
             <!-- Resizer Handle between Request & Response -->
             <Resizer
-              direction="vertical"
-              onResize={handleVerticalSplitResize}
-              onReset={() => requestPanePercent = 52}
+              direction={studioLayout === 'vertical' ? 'vertical' : 'horizontal'}
+              onResize={handleSplitResize}
+              onReset={() => requestPanePercent = 50}
             />
 
             <!-- Response Pane -->
-            <div style="height: {100 - requestPanePercent}%;" class="overflow-hidden flex flex-col p-2 pt-0">
-              <ResponseViewer response={activeReq.response} />
+            <div
+              style="{studioLayout === 'vertical' ? `height: ${100 - requestPanePercent}%;` : `width: ${100 - requestPanePercent}%;`}"
+              class="overflow-hidden flex flex-col p-2 {studioLayout === 'vertical' ? 'pt-0' : 'pl-0'}"
+            >
+              <ResponseViewer
+                response={activeReq.response}
+                {timeline}
+                onClearResponse={() => {
+                  if (activeReq) activeReq.response = undefined;
+                }}
+                onToggleLayout={() => {
+                  studioLayout = studioLayout === 'vertical' ? 'horizontal' : 'vertical';
+                }}
+                layoutOrientation={studioLayout}
+              />
             </div>
           </div>
         {:else}

@@ -128,31 +128,41 @@ impl VariableScopeStack {
 
     /// Recursively interpolates all fields of a YaracRequest (url, headers, query params, auth, body).
     pub fn interpolate_request(&self, req: &mut YaracRequest) -> String {
-        let interpolated_url = self.interpolate(&req.url);
+        let effective_stack = if !req.variables.is_empty() {
+            let mut s = self.clone();
+            for (k, v) in &req.variables {
+                s.local.insert(k.clone(), VariableValue::new(v.clone()));
+            }
+            s
+        } else {
+            self.clone()
+        };
+
+        let interpolated_url = effective_stack.interpolate(&req.url);
 
         // Interpolate headers
         for (_, v) in req.headers.iter_mut() {
-            *v = self.interpolate(v);
+            *v = effective_stack.interpolate(v);
         }
 
         // Interpolate query parameters
         for (_, v) in req.query_params.iter_mut() {
-            *v = self.interpolate(v);
+            *v = effective_stack.interpolate(v);
         }
 
         // Interpolate auth
         if let Some(auth) = &mut req.auth {
             match auth {
                 AuthConfig::Bearer { token } => {
-                    *token = self.interpolate(token);
+                    *token = effective_stack.interpolate(token);
                 }
                 AuthConfig::Basic { username, password } => {
-                    *username = self.interpolate(username);
-                    *password = self.interpolate(password);
+                    *username = effective_stack.interpolate(username);
+                    *password = effective_stack.interpolate(password);
                 }
                 AuthConfig::ApiKey { key, value, .. } => {
-                    *key = self.interpolate(key);
-                    *value = self.interpolate(value);
+                    *key = effective_stack.interpolate(key);
+                    *value = effective_stack.interpolate(value);
                 }
                 AuthConfig::AwsSigV4 {
                     access_key,
@@ -161,12 +171,12 @@ impl VariableScopeStack {
                     service,
                     session_token,
                 } => {
-                    *access_key = self.interpolate(access_key);
-                    *secret_key = self.interpolate(secret_key);
-                    *region = self.interpolate(region);
-                    *service = self.interpolate(service);
+                    *access_key = effective_stack.interpolate(access_key);
+                    *secret_key = effective_stack.interpolate(secret_key);
+                    *region = effective_stack.interpolate(region);
+                    *service = effective_stack.interpolate(service);
                     if let Some(tok) = session_token {
-                        *tok = self.interpolate(tok);
+                        *tok = effective_stack.interpolate(tok);
                     }
                 }
             }
@@ -175,20 +185,20 @@ impl VariableScopeStack {
         // Interpolate body
         match &mut req.body {
             BodyType::Json(s) => {
-                *s = self.interpolate(s);
+                *s = effective_stack.interpolate(s);
             }
             BodyType::Raw { content, .. } => {
-                *content = self.interpolate(content);
+                *content = effective_stack.interpolate(content);
             }
             BodyType::Form(map) => {
                 for (_, v) in map.iter_mut() {
-                    *v = self.interpolate(v);
+                    *v = effective_stack.interpolate(v);
                 }
             }
             BodyType::Multipart(parts) => {
                 for part in parts.iter_mut() {
                     if let Some(val) = &mut part.value {
-                        *val = self.interpolate(val);
+                        *val = effective_stack.interpolate(val);
                     }
                 }
             }
@@ -200,33 +210,189 @@ impl VariableScopeStack {
 }
 
 fn eval_dynamic_var(key: &str) -> Option<String> {
+    let now = SystemTime::now();
+    let since_epoch = now.duration_since(UNIX_EPOCH).unwrap_or_default();
+    let nanos = since_epoch.subsec_nanos() as u64;
+    let secs = since_epoch.as_secs();
+
+    const FIRST_NAMES: &[&str] = &[
+        "James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda",
+        "David", "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica",
+        "Thomas", "Sarah", "Charles", "Karen", "Daniel", "Nancy", "Matthew", "Lisa",
+    ];
+
+    const LAST_NAMES: &[&str] = &[
+        "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+        "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+        "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
+    ];
+
+    const CITIES: &[&str] = &[
+        "New York", "London", "Tokyo", "Paris", "Berlin", "Sydney", "Toronto", "Singapore",
+        "San Francisco", "Amsterdam", "Dublin", "Seoul", "Austin", "Zurich", "Madrid",
+    ];
+
+    const COUNTRIES: &[&str] = &[
+        "United States", "United Kingdom", "Canada", "Germany", "France", "Japan", "Australia",
+        "Netherlands", "Sweden", "Switzerland", "Ireland", "Singapore", "New Zealand",
+    ];
+
+    const COUNTRY_CODES: &[&str] = &[
+        "US", "GB", "CA", "DE", "FR", "JP", "AU", "NL", "SE", "CH", "IE", "SG", "NZ",
+    ];
+
+    const STREET_NAMES: &[&str] = &[
+        "Main St", "High St", "Maple Ave", "Oak St", "Park Blvd", "Broadway", "Market St",
+        "Cedar Lane", "Pine St", "Elm St", "Washington Ave", "Lakeview Dr",
+    ];
+
+    const WORDS: &[&str] = &[
+        "agile", "robust", "scalable", "ephemeral", "secure", "distributed", "protocol",
+        "payload", "stream", "pipeline", "cluster", "gateway", "latency", "throughput",
+        "matrix", "vector", "socket", "endpoint", "cache", "token", "session",
+    ];
+
+    const COMPANIES: &[&str] = &[
+        "Acme Corp", "Globex", "Initech", "Umbrella", "Cyberdyne", "Soylent", "Massive Dynamic",
+        "Hooli", "Pied Piper", "Stark Industries", "Wayne Enterprises",
+    ];
+
+    const JOB_TITLES: &[&str] = &[
+        "Software Engineer", "DevOps Specialist", "Product Manager", "QA Architect",
+        "Systems Analyst", "Site Reliability Engineer", "Security Researcher", "Data Scientist",
+    ];
+
+    let fn_idx = (nanos as usize) % FIRST_NAMES.len();
+    let ln_idx = ((nanos / 7) as usize) % LAST_NAMES.len();
+    let city_idx = ((nanos / 13) as usize) % CITIES.len();
+    let country_idx = ((nanos / 17) as usize) % COUNTRIES.len();
+    let street_idx = ((nanos / 23) as usize) % STREET_NAMES.len();
+    let word_idx = ((nanos / 29) as usize) % WORDS.len();
+    let company_idx = ((nanos / 31) as usize) % COMPANIES.len();
+    let job_idx = ((nanos / 37) as usize) % JOB_TITLES.len();
+
     match key {
         "$uuid" | "$guid" => Some(Uuid::new_v4().to_string()),
-        "$timestamp" => {
-            let start = SystemTime::now();
-            let since_epoch = start.duration_since(UNIX_EPOCH).unwrap_or_default();
-            Some(since_epoch.as_secs().to_string())
+        "$timestamp" => Some(secs.to_string()),
+        "$timestampMs" => Some(since_epoch.as_millis().to_string()),
+        "$isoTimestamp" => {
+            // ISO 8601 UTC formatted string
+            let total_secs = secs;
+            let s = total_secs % 60;
+            let m = (total_secs / 60) % 60;
+            let h = (total_secs / 3600) % 24;
+            let days_since_epoch = total_secs / 86400;
+
+            // Approximate year/month/day calculation
+            let mut days = days_since_epoch;
+            let mut year = 1970;
+            loop {
+                let leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+                let days_in_year = if leap { 366 } else { 365 };
+                if days >= days_in_year {
+                    days -= days_in_year;
+                    year += 1;
+                } else {
+                    break;
+                }
+            }
+            let leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+            let month_days = [
+                31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+            ];
+            let mut month = 1;
+            for &md in &month_days {
+                if days >= md {
+                    days -= md;
+                    month += 1;
+                } else {
+                    break;
+                }
+            }
+            let day = days + 1;
+            Some(format!(
+                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+                year, month, day, h, m, s, since_epoch.subsec_millis()
+            ))
         }
-        "$timestampMs" => {
-            let start = SystemTime::now();
-            let since_epoch = start.duration_since(UNIX_EPOCH).unwrap_or_default();
-            Some(since_epoch.as_millis().to_string())
+        "$randomInt" => Some(((nanos % 9000) + 1000).to_string()),
+        "$randomFloat" => {
+            let whole = (nanos % 900) + 10;
+            let frac = (nanos / 3) % 100;
+            Some(format!("{}.{:02}", whole, frac))
         }
-        "$randomInt" => {
-            // Simple pseudo-random using time ticks without heavy dependencies
-            let nanos = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .subsec_nanos();
-            Some((nanos % 10000).to_string())
+        "$randomFirstName" => Some(FIRST_NAMES[fn_idx].to_string()),
+        "$randomLastName" => Some(LAST_NAMES[ln_idx].to_string()),
+        "$randomFullName" => Some(format!("{} {}", FIRST_NAMES[fn_idx], LAST_NAMES[ln_idx])),
+        "$randomUserName" => Some(format!(
+            "{}_{}",
+            FIRST_NAMES[fn_idx].to_lowercase(),
+            (nanos % 900) + 100
+        )),
+        "$randomEmail" => Some(format!(
+            "{}.{}{}@example.com",
+            FIRST_NAMES[fn_idx].to_lowercase(),
+            LAST_NAMES[ln_idx].to_lowercase(),
+            (nanos % 90) + 10
+        )),
+        "$randomPassword" => Some(format!(
+            "P@ssw0rd_{:x}_{:x}",
+            nanos % 0xffff,
+            (secs / 7) % 0xffff
+        )),
+        "$randomBoolean" => Some(if nanos % 2 == 0 { "true".to_string() } else { "false".to_string() }),
+        "$randomCity" => Some(CITIES[city_idx].to_string()),
+        "$randomCountry" => Some(COUNTRIES[country_idx].to_string()),
+        "$randomCountryCode" => Some(COUNTRY_CODES[country_idx % COUNTRY_CODES.len()].to_string()),
+        "$randomStreetAddress" => Some(format!("{} {}", (nanos % 9000) + 100, STREET_NAMES[street_idx])),
+        "$randomStreetName" => Some(STREET_NAMES[street_idx].to_string()),
+        "$randomPhoneNumber" => Some(format!(
+            "+1-555-{:03}-{:04}",
+            (nanos % 900) + 100,
+            (nanos / 1000) % 9000 + 1000
+        )),
+        "$randomWord" => Some(WORDS[word_idx].to_string()),
+        "$randomWords" => {
+            let w1 = WORDS[word_idx];
+            let w2 = WORDS[(word_idx + 1) % WORDS.len()];
+            let w3 = WORDS[(word_idx + 2) % WORDS.len()];
+            Some(format!("{} {} {}", w1, w2, w3))
         }
-        "$randomEmail" => {
-            let nanos = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .subsec_nanos();
-            Some(format!("user_{}@example.com", nanos % 10000))
+        "$randomAlphaNumeric" => {
+            let mut s = String::with_capacity(16);
+            for i in 0..16 {
+                let shift = (nanos.wrapping_mul(i + 1)) % 36;
+                let c = if shift < 10 {
+                    (b'0' + shift as u8) as char
+                } else {
+                    (b'a' + (shift - 10) as u8) as char
+                };
+                s.push(c);
+            }
+            Some(s)
         }
+        "$randomHexColor" => Some(format!("#{:06x}", nanos % 0xffffff)),
+        "$randomIP" => Some(format!(
+            "192.168.{}.{}",
+            (nanos % 254) + 1,
+            ((nanos / 256) % 254) + 1
+        )),
+        "$randomIPv6" => Some(format!(
+            "2001:db8:{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
+            nanos % 0xffff,
+            (nanos / 2) % 0xffff,
+            (nanos / 4) % 0xffff,
+            (nanos / 8) % 0xffff,
+            (nanos / 16) % 0xffff,
+            (nanos / 32) % 0xffff
+        )),
+        "$randomUrl" => Some(format!(
+            "https://{}.example.com/api/v1",
+            WORDS[word_idx]
+        )),
+        "$randomPrice" => Some(format!("{}.{:02}", (nanos % 500) + 5, (nanos / 7) % 100)),
+        "$randomCompany" => Some(COMPANIES[company_idx].to_string()),
+        "$randomJobTitle" => Some(JOB_TITLES[job_idx].to_string()),
         _ => None,
     }
 }

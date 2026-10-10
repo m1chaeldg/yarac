@@ -376,6 +376,7 @@ pub async fn run_suite(target_path: &Path, options: RunnerOptions) -> RunSummary
                     let client = match YaracHttpClient::new(
                         req.settings.verify_ssl,
                         req.settings.follow_redirects,
+                        req.settings.max_redirects,
                         req.settings.timeout_ms,
                         None,
                     ) {
@@ -401,6 +402,20 @@ pub async fn run_suite(target_path: &Path, options: RunnerOptions) -> RunSummary
                     loop {
                         match client.execute(&req, &ws_root, &interpolated_url).await {
                             Ok(mut report) => {
+                                // Run assert
+                                if let Some(assert_script) = &req.assert {
+                                    let _ = script_runner
+                                        .run_assert(assert_script, &mut report, &secrets)
+                                        .await;
+                                }
+
+                                // Run tests
+                                if let Some(tests_script) = &req.tests {
+                                    let _ = script_runner
+                                        .run_tests(tests_script, &mut report, &secrets)
+                                        .await;
+                                }
+
                                 // Post-response script
                                 if let Some(post_script) = &req.scripts.post_response {
                                     if let Ok(mutated) = script_runner

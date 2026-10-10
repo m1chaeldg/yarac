@@ -54,3 +54,18 @@ fn test_roundtrip_flow_with_pacing_and_jitter() {
     assert_eq!(flow.jitter_max_ms, Some(150));
 }
 
+#[test]
+fn test_roundtrip_variables_assert_tests_settings() {
+    let input = "version = \"1.0\"\nname = \"Complete Request\"\nmethod = \"POST\"\nurl = \"https://api.example.com/items\"\n\n[settings]\ninherit_auth = true\nverify_ssl = true\nfollow_redirects = true\nmax_redirects = 10\ntimeout_ms = 0\n\n[variables]\nitem_id = \"item_999\"\napi_mode = \"strict\"\n\n[assert]\n```javascript\nresponse.status === 200\nresponse.json().success === true\n```\n\n[tests]\n```javascript\ndescribe(\"Item Verification\", () => {\n  it(\"matches expectation\", () => {\n    expect(response.status).toBe(200);\n  });\n});\n```\n";
+    let cst = parse(input).expect("Parse full request");
+    assert_eq!(serialize(&cst), input, "Roundtrip invariant must hold for variables, assert, tests, settings");
+
+    let req = cst.to_request().expect("To request");
+    assert_eq!(req.settings.max_redirects, 10);
+    assert_eq!(req.settings.timeout_ms, 0);
+    assert_eq!(req.variables.get("item_id").unwrap(), "item_999");
+    assert_eq!(req.variables.get("api_mode").unwrap(), "strict");
+    assert!(req.assert.unwrap().contains("response.status === 200"));
+    assert!(req.tests.unwrap().contains("Item Verification"));
+}
+

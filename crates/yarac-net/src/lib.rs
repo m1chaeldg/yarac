@@ -35,17 +35,23 @@ impl YaracHttpClient {
     pub fn new(
         verify_ssl: bool,
         follow_redirects: bool,
+        max_redirects: u32,
         timeout_ms: u64,
         client_cert_pem: Option<&[u8]>,
     ) -> Result<Self, NetError> {
         let cookie_store = Arc::new(CookieStoreMutex::default());
         let mut builder = Client::builder()
             .cookie_provider(cookie_store.clone())
-            .danger_accept_invalid_certs(!verify_ssl)
-            .timeout(Duration::from_millis(timeout_ms));
+            .danger_accept_invalid_certs(!verify_ssl);
+
+        if timeout_ms > 0 {
+            builder = builder.timeout(Duration::from_millis(timeout_ms));
+        }
 
         if !follow_redirects {
             builder = builder.redirect(reqwest::redirect::Policy::none());
+        } else {
+            builder = builder.redirect(reqwest::redirect::Policy::limited(max_redirects as usize));
         }
 
         if let Some(pem_bytes) = client_cert_pem {
@@ -195,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_client_builder_with_cookie_store() {
-        let client = YaracHttpClient::new(true, true, 5000, None).expect("Create client");
+        let client = YaracHttpClient::new(true, true, 5, 5000, None).expect("Create client");
         let store = client.cookie_store();
         let guard = store.lock().unwrap();
         assert_eq!(guard.iter_any().count(), 0);

@@ -105,6 +105,9 @@ fn test_openapi_3_1_export_and_import_cycle() {
             pre_request: Some("console.log('Order starting');".into()),
             post_response: Some("expect(yarac.response.status).to.equal(201);".into()),
         },
+        variables: indexmap::IndexMap::new(),
+        assert: None,
+        tests: None,
     };
     req.headers.insert("Content-Type".into(), "application/json".into());
     req.query_params.insert("fast_track".into(), "true".into());

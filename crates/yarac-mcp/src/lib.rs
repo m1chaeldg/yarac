@@ -190,6 +190,7 @@ impl YaracMcpServer {
         let client = YaracHttpClient::new(
             req.settings.verify_ssl,
             req.settings.follow_redirects,
+            req.settings.max_redirects,
             req.settings.timeout_ms,
             None,
         ).map_err(|e| format!("Client creation error: {e}"))?;

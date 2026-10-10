@@ -30,6 +30,19 @@ export interface BodyConfig {
   formData: KeyValuePair[];
 }
 
+export interface RequestSettings {
+  inheritAuth: boolean;
+  verifySsl: boolean;
+  followRedirects: boolean;
+  maxRedirects: number;
+  timeoutMs: number;
+}
+
+export interface ScriptHooks {
+  preRequest: string;
+  postResponse: string;
+}
+
 export interface YaracRequest {
   id: string;
   collectionId: string;
@@ -38,9 +51,14 @@ export interface YaracRequest {
   url: string;
   params: KeyValuePair[];
   headers: KeyValuePair[];
+  variables: KeyValuePair[];
   auth: AuthConfig;
   body: BodyConfig;
   flow: FlowState;
+  scripts: ScriptHooks;
+  assert: string;
+  tests: string;
+  settings: RequestSettings;
   dslContent: string;
   isDirty?: boolean;
   response?: {
@@ -51,6 +69,8 @@ export interface YaracRequest {
     headers: Record<string, string>;
     body: string;
     timestamp: string;
+    assertions?: Array<{ name: string; passed: boolean; message?: string; error_message?: string }>;
+    logs?: string[];
   };
 }
 
@@ -90,13 +110,14 @@ export function serializeToDsl(req: YaracRequest): string {
   lines.push(``);
 
   lines.push(`[settings]`);
-  lines.push(`inherit_auth = ${req.auth.type === 'inherit'}`);
-  lines.push(`verify_ssl = true`);
-  lines.push(`follow_redirects = true`);
-  lines.push(`timeout_ms = 15000`);
+  lines.push(`inherit_auth = ${req.settings?.inheritAuth ?? (req.auth.type === 'inherit')}`);
+  lines.push(`verify_ssl = ${req.settings?.verifySsl ?? true}`);
+  lines.push(`follow_redirects = ${req.settings?.followRedirects ?? true}`);
+  lines.push(`max_redirects = ${req.settings?.maxRedirects ?? 5}`);
+  lines.push(`timeout_ms = ${req.settings?.timeoutMs ?? 0}`);
   lines.push(``);
 
-  const activeParams = req.params.filter(p => p.enabled && p.key.trim());
+  const activeParams = (req.params || []).filter(p => p.enabled && p.key.trim());
   if (activeParams.length > 0) {
     lines.push(`[params.query]`);
     for (const p of activeParams) {
@@ -105,11 +126,20 @@ export function serializeToDsl(req: YaracRequest): string {
     lines.push(``);
   }
 
-  const activeHeaders = req.headers.filter(h => h.enabled && h.key.trim());
+  const activeHeaders = (req.headers || []).filter(h => h.enabled && h.key.trim());
   if (activeHeaders.length > 0) {
     lines.push(`[headers]`);
     for (const h of activeHeaders) {
       lines.push(`${h.key.trim()} = "${h.value.replace(/"/g, '\\"')}"`);
+    }
+    lines.push(``);
+  }
+
+  const activeVars = (req.variables || []).filter(v => v.enabled && v.key.trim());
+  if (activeVars.length > 0) {
+    lines.push(`[variables]`);
+    for (const v of activeVars) {
+      lines.push(`${v.key.trim()} = "${v.value.replace(/"/g, '\\"')}"`);
     }
     lines.push(``);
   }
@@ -154,6 +184,38 @@ export function serializeToDsl(req: YaracRequest): string {
     lines.push(``);
   }
 
+  if (req.scripts?.preRequest?.trim()) {
+    lines.push(`[scripts.pre-request]`);
+    lines.push('```javascript');
+    lines.push(req.scripts.preRequest.trim());
+    lines.push('```');
+    lines.push(``);
+  }
+
+  if (req.scripts?.postResponse?.trim()) {
+    lines.push(`[scripts.post-response]`);
+    lines.push('```javascript');
+    lines.push(req.scripts.postResponse.trim());
+    lines.push('```');
+    lines.push(``);
+  }
+
+  if (req.assert?.trim()) {
+    lines.push(`[assert]`);
+    lines.push('```javascript');
+    lines.push(req.assert.trim());
+    lines.push('```');
+    lines.push(``);
+  }
+
+  if (req.tests?.trim()) {
+    lines.push(`[tests]`);
+    lines.push('```javascript');
+    lines.push(req.tests.trim());
+    lines.push('```');
+    lines.push(``);
+  }
+
   return lines.join('\n');
 }
 
@@ -169,6 +231,24 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
 
   const urlMatch = dsl.match(/url\s*=\s*"([^"]+)"/);
   if (urlMatch) updated.url = urlMatch[1];
+
+  const settingsMatch = dsl.match(/\[settings\]([\s\S]*?)(?=\n\[|$)/);
+  if (settingsMatch) {
+    const sText = settingsMatch[1];
+    const inheritAuth = sText.match(/inherit_auth\s*=\s*(true|false)/);
+    const verifySsl = sText.match(/verify_ssl\s*=\s*(true|false)/);
+    const followRedirects = sText.match(/follow_redirects\s*=\s*(true|false)/);
+    const maxRedirects = sText.match(/max_redirects\s*=\s*(\d+)/);
+    const timeoutMs = sText.match(/timeout_ms\s*=\s*(\d+)/);
+
+    updated.settings = {
+      inheritAuth: inheritAuth ? inheritAuth[1] === 'true' : (updated.settings?.inheritAuth ?? true),
+      verifySsl: verifySsl ? verifySsl[1] === 'true' : (updated.settings?.verifySsl ?? true),
+      followRedirects: followRedirects ? followRedirects[1] === 'true' : (updated.settings?.followRedirects ?? true),
+      maxRedirects: maxRedirects ? parseInt(maxRedirects[1], 10) : (updated.settings?.maxRedirects ?? 5),
+      timeoutMs: timeoutMs ? parseInt(timeoutMs[1], 10) : (updated.settings?.timeoutMs ?? 0)
+    };
+  }
 
   const paramsMatch = dsl.match(/\[params\.query\]([\s\S]*?)(?=\n\[|$)/);
   if (paramsMatch) {
@@ -198,6 +278,20 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
     }
   }
 
+  const varsMatch = dsl.match(/\[variables\]([\s\S]*?)(?=\n\[|$)/);
+  if (varsMatch) {
+    const varLines = varsMatch[1].split('\n').filter(l => l.includes('='));
+    const parsedVars: KeyValuePair[] = varLines.map(line => {
+      const parts = line.split('=');
+      const k = parts[0].trim();
+      const v = parts.slice(1).join('=').trim().replace(/^"(.*)"$/, '$1');
+      return { id: generateId(), key: k, value: v, enabled: true };
+    });
+    if (parsedVars.length > 0) {
+      updated.variables = parsedVars;
+    }
+  }
+
   const authMatch = dsl.match(/\[auth\]([\s\S]*?)(?=\n\[|$)/);
   if (authMatch) {
     const text = authMatch[1];
@@ -213,6 +307,28 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
   if (bodyJsonMatch) {
     updated.body.type = 'json';
     updated.body.rawContent = bodyJsonMatch[1].trim();
+  }
+
+  const preScriptMatch = dsl.match(/\[scripts\.pre-request\]\s*```(?:javascript|js)?([\s\S]*?)```/);
+  if (preScriptMatch) {
+    if (!updated.scripts) updated.scripts = { preRequest: '', postResponse: '' };
+    updated.scripts.preRequest = preScriptMatch[1].trim();
+  }
+
+  const postScriptMatch = dsl.match(/\[scripts\.post-response\]\s*```(?:javascript|js)?([\s\S]*?)```/);
+  if (postScriptMatch) {
+    if (!updated.scripts) updated.scripts = { preRequest: '', postResponse: '' };
+    updated.scripts.postResponse = postScriptMatch[1].trim();
+  }
+
+  const assertMatch = dsl.match(/\[assert\]\s*```(?:javascript|js)?([\s\S]*?)```/);
+  if (assertMatch) {
+    updated.assert = assertMatch[1].trim();
+  }
+
+  const testsMatch = dsl.match(/\[tests\]\s*```(?:javascript|js)?([\s\S]*?)```/);
+  if (testsMatch) {
+    updated.tests = testsMatch[1].trim();
   }
 
   return updated;
@@ -281,6 +397,23 @@ const defaultInitialWorkspaces: Workspace[] = [
           rawContent: '{\n  "email": "developer_{{$randomInt}}@yarac.dev",\n  "role": "admin",\n  "tier": "enterprise",\n  "metrics": {\n    "logins": 42,\n    "projects": 12,\n    "storage_gb": 85\n  }\n}',
           formData: []
         },
+        variables: [
+          { id: 'rv1', key: 'user_role', value: 'admin', enabled: true, description: 'Role assigned to new user' },
+          { id: 'rv2', key: 'registration_source', value: 'developer_portal', enabled: true, description: 'Source channel' }
+        ],
+        scripts: {
+          preRequest: '// Pre-request script: set dynamic variables or compute headers\nconst randomEmail = faker.internet.email();\nyarac.setVar("temp_email", randomEmail);\nconsole.log("Generated mock email: " + randomEmail);',
+          postResponse: '// Post-response script: inspect response and extract token\nif (res.status === 201) {\n  const data = res.json();\n  if (data && data.id) {\n    yarac.setVar("created_user_id", data.id);\n    console.log("Saved user ID:", data.id);\n  }\n}'
+        },
+        assert: '// Assertion script: verify response status and latency\nexpect(res.status).toBe(201);\nexpect(res.headers["content-type"]).toContain("application/json");\nexpect(res.time).toBeLessThan(2000);',
+        tests: '// Jasmine / Bruno BDD Test Suite\ndescribe("User Creation Contract", () => {\n  it("should return 201 Created with valid payload", () => {\n    expect(res.status).toBe(201);\n    const body = res.json();\n    expect(body.id).toBeDefined();\n    expect(body.tier).toBe("enterprise");\n  });\n\n  it("should include audit stats and teams", () => {\n    const body = res.json();\n    expect(body.stats.active_sessions).toBeGreaterThan(0);\n    expect(body.teams.length).toBe(3);\n  });\n});',
+        settings: {
+          inheritAuth: true,
+          verifySsl: true,
+          followRedirects: true,
+          maxRedirects: 5,
+          timeoutMs: 0
+        },
         flow: {
           once_per_run: false,
           retry_until: "response.status == 200 && response.body.status == 'ready'",
@@ -345,6 +478,20 @@ const defaultInitialWorkspaces: Workspace[] = [
           rawContent: '',
           formData: []
         },
+        variables: [],
+        scripts: {
+          preRequest: '',
+          postResponse: ''
+        },
+        assert: '',
+        tests: '',
+        settings: {
+          inheritAuth: true,
+          verifySsl: true,
+          followRedirects: true,
+          maxRedirects: 5,
+          timeoutMs: 0
+        },
         flow: {
           once_per_run: false,
           retry_until: '',
@@ -399,6 +546,20 @@ const defaultInitialWorkspaces: Workspace[] = [
           rawContent: '{\n  "action": "rotate_keys",\n  "expire_old_in_hours": 24\n}',
           formData: []
         },
+        variables: [],
+        scripts: {
+          preRequest: '',
+          postResponse: ''
+        },
+        assert: '',
+        tests: '',
+        settings: {
+          inheritAuth: true,
+          verifySsl: true,
+          followRedirects: true,
+          maxRedirects: 5,
+          timeoutMs: 0
+        },
         flow: {
           once_per_run: false,
           retry_until: '',
@@ -445,6 +606,17 @@ const defaultInitialWorkspaces: Workspace[] = [
         ],
         auth: { type: 'none' },
         body: { type: 'none', rawContent: '', formData: [] },
+        variables: [],
+        scripts: { preRequest: '', postResponse: '' },
+        assert: '',
+        tests: '',
+        settings: {
+          inheritAuth: true,
+          verifySsl: true,
+          followRedirects: true,
+          maxRedirects: 5,
+          timeoutMs: 0
+        },
         flow: {
           once_per_run: true,
           retry_until: 'response.status == 200',
@@ -529,6 +701,17 @@ export class WorkspaceStore {
               url: 'http://localhost',
               params: [],
               headers: [],
+              variables: [],
+              scripts: { preRequest: '', postResponse: '' },
+              assert: '',
+              tests: '',
+              settings: {
+                inheritAuth: true,
+                verifySsl: true,
+                followRedirects: true,
+                maxRedirects: 5,
+                timeoutMs: 0
+              },
               auth: { type: 'inherit' },
               body: { type: 'none', rawContent: '', formData: [] },
               flow: {
@@ -701,6 +884,20 @@ export class WorkspaceStore {
       headers: [
         { id: generateId(), key: 'Accept', value: 'application/json', enabled: true }
       ],
+      variables: [],
+      scripts: {
+        preRequest: '',
+        postResponse: ''
+      },
+      assert: '',
+      tests: '',
+      settings: {
+        inheritAuth: true,
+        verifySsl: true,
+        followRedirects: true,
+        maxRedirects: 5,
+        timeoutMs: 0
+      },
       auth: { type: 'inherit' },
       body: { type: 'none', rawContent: '', formData: [] },
       flow: {
@@ -751,6 +948,9 @@ export class WorkspaceStore {
     // Refresh IDs for cloned sub-arrays
     cloned.params = cloned.params.map(p => ({ ...p, id: generateId() }));
     cloned.headers = cloned.headers.map(h => ({ ...h, id: generateId() }));
+    if (cloned.variables) {
+      cloned.variables = cloned.variables.map(v => ({ ...v, id: generateId() }));
+    }
     if (cloned.body && cloned.body.formData) {
       cloned.body.formData = cloned.body.formData.map(f => ({ ...f, id: generateId() }));
     }

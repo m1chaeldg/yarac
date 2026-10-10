@@ -11,9 +11,15 @@ pub struct YaracRequest {
     pub headers: IndexMap<String, String>,
     pub auth: Option<AuthConfig>,
     pub query_params: IndexMap<String, String>,
+    #[serde(default)]
+    pub variables: IndexMap<String, String>,
     pub flow: Option<FlowControl>,
     pub body: BodyType,
     pub scripts: ScriptHooks,
+    #[serde(default)]
+    pub assert: Option<String>,
+    #[serde(default)]
+    pub tests: Option<String>,
 }
 
 impl Default for YaracRequest {
@@ -27,11 +33,18 @@ impl Default for YaracRequest {
             headers: IndexMap::new(),
             auth: None,
             query_params: IndexMap::new(),
+            variables: IndexMap::new(),
             flow: None,
             body: BodyType::None,
             scripts: ScriptHooks::default(),
+            assert: None,
+            tests: None,
         }
     }
+}
+
+fn default_max_redirects() -> u32 {
+    5
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,6 +52,8 @@ pub struct Settings {
     pub inherit_auth: bool,
     pub verify_ssl: bool,
     pub follow_redirects: bool,
+    #[serde(default = "default_max_redirects")]
+    pub max_redirects: u32,
     pub timeout_ms: u64,
 }
 
@@ -48,7 +63,8 @@ impl Default for Settings {
             inherit_auth: true,
             verify_ssl: true,
             follow_redirects: true,
-            timeout_ms: 15000,
+            max_redirects: 5,
+            timeout_ms: 0,
         }
     }
 }

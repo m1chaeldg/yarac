@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-10
+
+### Added
+- **Request Tab Enhancements**:
+  - **Request-Level Variables (`[variables]`)**: Scoped variables with secret toggles, prioritized over collection and environment scopes, interpolable anywhere in URLs, headers, and request bodies via `{{variable_name}}`.
+  - **Embedded Faker Engine & Bruno Dynamic Variables**:
+    - Comprehensive embedded zero-dependency faker library (`faker.internet`, `faker.person`, `faker.string`, `faker.location`, `faker.number`, `faker.commerce`, `faker.company`, `faker.datatype`, `faker.lorem`, `faker.date`).
+    - Complete Bruno dynamic macro evaluation (`$uuid`, `$guid`, `$timestamp`, `$isoTimestamp`, `$randomInt`, `$randomFloat`, `$randomEmail`, `$randomFullName`, `$randomPassword`, `$randomCity`, `$randomCountry`, `$randomPrice`, etc.).
+  - **Pre-Request & Post-Response Scripting (`[scripts.pre-request]`, `[scripts.post-response]`)**:
+    - Ephemeral sandboxed `deno_core` runtime with 5000ms interrupt timeout.
+    - Script global APIs: `req`, `res`, `yarac.getVar()`, `yarac.setVar()`, `yarac.getEnvVar()`, `yarac.setEnvVar()`, `faker`, and `console.log`.
+  - **JavaScript Assertions (`[assert]`)**:
+    - Lightweight single-line or multi-line assertion blocks evaluated against responses.
+  - **Jasmine / Bruno BDD Test Suite (`[tests]`)**:
+    - Full `describe`, `it`, `test`, `expect` matchers (`toBe`, `toEqual`, `toBeDefined`, `toBeNull`, `toBeGreaterThan`, `toContain`, `toMatch`, `toThrow`).
+  - **Request Execution Settings (`[settings]`)**:
+    - `follow_redirects` (bool), `max_redirects` (u32 limit, default 5), `timeout_ms` (u64, default 0 for indefinite/no timeout), `verify_ssl`, `inherit_auth`.
+- **Response Tab Enhancements**:
+  - **Test Results View**: Real-time pass/fail breakdown with duration, error messages, and script console output logs.
+  - **Execution History Timeline**: Chronological run log capturing execution timestamps, status badges, latencies, and payload sizes.
+  - **Enhanced Response Body Views**:
+    - JSON view with pretty formatting and syntax rendering.
+    - Flattened Data Table with multi-column text search, column filtering, and interactive column sorting (ascending/descending).
+    - Rendered HTML preview with secure sandboxed frame.
+    - XML formatted and syntax-highlighted document viewer.
+    - Raw text body viewer.
+    - Visualizer charts (Pie Chart & Bar Chart) for numerical response payloads.
+  - **Response Tools Menu (`...`)**:
+    - Copy response body, save/download as JSON or raw text, clear response.
+    - Split layout toggle between vertical (stacked) and horizontal (side-by-side) orientations.
+
 ## [0.2.4] - 2026-10-10
 
 ### Added

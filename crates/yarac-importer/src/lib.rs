@@ -332,9 +332,12 @@ impl PostmanImporter {
                     headers,
                     auth,
                     query_params,
+                    variables: IndexMap::new(),
                     flow: None,
                     body,
                     scripts: ScriptHooks::default(),
+                    assert: None,
+                    tests: None,
                 });
             }
         }
@@ -468,9 +471,12 @@ impl BrunoImporter {
             headers,
             auth,
             query_params,
+            variables: IndexMap::new(),
             flow: None,
             body,
             scripts,
+            assert: None,
+            tests: None,
         })
     }
 
@@ -678,9 +684,12 @@ impl OpenApiImporter {
                                 headers,
                                 auth,
                                 query_params,
+                                variables: IndexMap::new(),
                                 flow: None,
                                 body,
                                 scripts: ScriptHooks::default(),
+                                assert: None,
+                                tests: None,
                             });
                         }
                     }

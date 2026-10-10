@@ -312,7 +312,13 @@ Connection: close\r\n\r\n{}",
 
         let interpolated_url = scope.interpolate_request(&mut req);
 
-        let client = match YaracHttpClient::new(req.settings.verify_ssl, req.settings.follow_redirects, req.settings.timeout_ms, None) {
+        let client = match YaracHttpClient::new(
+            req.settings.verify_ssl,
+            req.settings.follow_redirects,
+            req.settings.max_redirects,
+            req.settings.timeout_ms,
+            None,
+        ) {
             Ok(c) => c,
             Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
         };
@@ -334,6 +340,14 @@ Connection: close\r\n\r\n{}",
                 error: Some(e.to_string()),
             },
         };
+
+        if let Some(assert_script) = &req.assert {
+            let _ = runner.run_assert(assert_script, &mut report, &secrets).await;
+        }
+
+        if let Some(tests_script) = &req.tests {
+            let _ = runner.run_tests(tests_script, &mut report, &secrets).await;
+        }
 
         if let Some(post_script) = &req.scripts.post_response {
             let _ = runner.run_post_response(post_script, &mut report, &secrets).await;
@@ -363,7 +377,7 @@ Connection: close\r\n\r\n{}",
         let start_time = Instant::now();
         let total_runs = payload.iterations * payload.requests.len();
 
-        let client = match YaracHttpClient::new(true, true, 15000, None) {
+        let client = match YaracHttpClient::new(true, true, 5, 15000, None) {
             Ok(c) => c,
             Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
         };

@@ -135,6 +135,11 @@ impl CstDocument {
                                             req.settings.follow_redirects = b;
                                         }
                                     }
+                                    "max_redirects" => {
+                                        if let Some(i) = kv.value.as_i64() {
+                                            req.settings.max_redirects = i as u32;
+                                        }
+                                    }
                                     "timeout_ms" => {
                                         if let Some(i) = kv.value.as_i64() {
                                             req.settings.timeout_ms = i as u64;
@@ -256,6 +261,27 @@ impl CstDocument {
                         for sub in &table.items {
                             if let CstTableItem::FencedBlock(fb) = sub {
                                 req.scripts.post_response = Some(fb.content.clone());
+                            }
+                        }
+                    }
+                    "variables" => {
+                        for sub in &table.items {
+                            if let CstTableItem::KeyValue(kv) = sub {
+                                req.variables.insert(kv.key.clone(), kv.value.as_str().to_string());
+                            }
+                        }
+                    }
+                    "assert" | "asserts" => {
+                        for sub in &table.items {
+                            if let CstTableItem::FencedBlock(fb) = sub {
+                                req.assert = Some(fb.content.clone());
+                            }
+                        }
+                    }
+                    "test" | "tests" => {
+                        for sub in &table.items {
+                            if let CstTableItem::FencedBlock(fb) = sub {
+                                req.tests = Some(fb.content.clone());
                             }
                         }
                     }
