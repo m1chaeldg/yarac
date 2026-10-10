@@ -46,12 +46,22 @@
       "webRoot": "${workspaceFolder}/frontend",
       "sourceMaps": true
     },
+    },
     {
-      "name": "Backend: Debug yarac-cli (CodeLLDB)",
+      "name": "Backend: Debug yarac-cli Run (CodeLLDB)",
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/target/debug/yarac-cli.exe",
-      "args": ["run", "${workspaceFolder}/collections"],
+      "args": ["run", "${workspaceFolder}/workspace"],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build-yarac-cli"
+    },
+    {
+      "name": "Backend: Debug yarac-cli Serve Daemon (CodeLLDB)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/yarac-cli.exe",
+      "args": ["serve", "--workspace", "${workspaceFolder}/workspace", "--port", "9475"],
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "build-yarac-cli"
     },
@@ -60,17 +70,17 @@
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/target/debug/yarac-cli.exe",
-      "args": ["run", "${workspaceFolder}/collections"],
+      "args": ["run", "${workspaceFolder}/workspace"],
       "cwd": "${workspaceFolder}",
       "preLaunchTask": "build-yarac-cli"
     }
   ],
   "compounds": [
     {
-      "name": "Full Stack: Chrome + yarac-cli (CodeLLDB)",
+      "name": "Full Stack: Chrome + yarac-cli Serve (CodeLLDB)",
       "configurations": [
         "Frontend: Chrome (Live Reload)",
-        "Backend: Debug yarac-cli (CodeLLDB)"
+        "Backend: Debug yarac-cli Serve Daemon (CodeLLDB)"
       ]
     }
   ]

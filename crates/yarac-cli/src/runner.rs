@@ -171,9 +171,24 @@ pub async fn run_suite(target_path: &Path, options: RunnerOptions) -> RunSummary
 
     // Load Environment
     let mut base_env = HashMap::new();
-    if let Some(ep) = &options.env_path {
+    let env_paths_to_check: Vec<PathBuf> = if let Some(ep) = &options.env_path {
+        vec![ep.clone()]
+    } else {
+        let dir = if target_path.is_dir() {
+            target_path
+        } else {
+            target_path.parent().unwrap_or(target_path)
+        };
+        vec![
+            dir.join(".env.yarac"),
+            dir.join(".yarac.local"),
+            dir.join("environments/dev.env.yarac"),
+        ]
+    };
+
+    for ep in env_paths_to_check {
         if ep.exists() {
-            if let Ok(content) = std::fs::read_to_string(ep) {
+            if let Ok(content) = std::fs::read_to_string(&ep) {
                 for line in content.lines() {
                     let trimmed = line.trim();
                     if trimmed.is_empty() || trimmed.starts_with('#') {
@@ -188,6 +203,9 @@ pub async fn run_suite(target_path: &Path, options: RunnerOptions) -> RunSummary
             }
         }
     }
+
+    // Default fallback for local testing if base_url is not set
+    base_env.entry("base_url".into()).or_insert_with(|| VariableValue::new("http://127.0.0.1:9475"));
 
     // Load Data Iteration Records (CSV/JSON)
     let iteration_records = if let Some(dp) = &options.data_path {
@@ -353,7 +371,7 @@ pub async fn run_suite(target_path: &Path, options: RunnerOptions) -> RunSummary
                             .await;
                     }
 
-                    let interpolated_url = scope.interpolate(&req.url);
+                    let interpolated_url = scope.interpolate_request(&mut req);
 
                     let client = match YaracHttpClient::new(
                         req.settings.verify_ssl,
@@ -543,7 +561,10 @@ fn collect_yarac_files(dir: &Path, out: &mut Vec<PathBuf>) {
             if path.is_dir() {
                 collect_yarac_files(&path, out);
             } else if path.extension().and_then(|s| s.to_str()) == Some("yarac") {
-                out.push(path);
+                let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+                if !fname.starts_with('.') && !fname.ends_with(".env.yarac") {
+                    out.push(path);
+                }
             }
         }
     }

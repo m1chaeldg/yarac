@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-10-10
+
+### Added
+- **Full-Stack REST Client Synchronization & Auto-Daemon Execution**:
+  - **Full-Spectrum Variable Interpolation Engine (`yarac-core`)**:
+    - Implemented `VariableScopeStack::interpolate_request` recursively resolving template variables `{{var}}` and dynamic macros (`{{$uuid}}`) across URLs, headers, query parameters, authentication configurations, and request payloads (JSON, raw, urlencoded, multipart).
+  - **Offline Mock Echo Engine & Request Dispatcher (`yarac-cli/src/server.rs`)**:
+    - Integrated request scope interpolation into live request and runner execution endpoints.
+    - Added built-in loopback mock routes (`/api/v1/users/*`, `/credentials`, `/api/echo*`) supporting 100% offline self-contained usability without external network dependencies.
+    - Filtered `.env.yarac` and hidden system files from workspace scan and file collectors.
+  - **Automated Daemon Lifecycle (`frontend/vite.config.ts`)**:
+    - Added health probe for `127.0.0.1:9475` on dev server startup, automatically spawning `yarac-cli.exe serve` if not running.
+  - **Query Parameter Synchronization & Tab State Persistence (`frontend/stores/workspace.svelte.ts`)**:
+    - Added bidirectional query parameter parsing and serialization (`[params.query]`) matching the `.yarac` CST specification.
+    - Preserved active request tabs and selected tab across page reloads.
+  - **Headless CLI Runner Environment Auto-Discovery (`yarac-cli`)**:
+    - Auto-discovers `.env.yarac` and defaults `base_url` to local daemon port for headless test runs.
+  - **VS Code Debugging Profiles (`.vscode/launch.json`)**:
+    - Corrected workspace directory paths and added dedicated daemon debugging target.
+
 ## [0.2.2] - 2026-10-10
 
 ### Added

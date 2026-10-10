@@ -247,6 +247,12 @@ Access-Control-Allow-Origin: *\r\n\r\n";
                     return;
                 }
 
+                if path.starts_with("/api/v1/users") || path.starts_with("/api/echo") {
+                    let (status, resp_body) = Self::handle_mock_echo(method, path, body);
+                    Self::send_json(&mut socket, status, &resp_body).await;
+                    return;
+                }
+
                 let not_found = json!({ "error": "Not Found" }).to_string();
                 Self::send_json(&mut socket, 404, &not_found).await;
             });
@@ -304,7 +310,7 @@ Connection: close\r\n\r\n{}",
             let _ = runner.run_pre_request(&pre_script, &mut req, &secrets).await;
         }
 
-        let interpolated_url = scope.interpolate(&req.url);
+        let interpolated_url = scope.interpolate_request(&mut req);
 
         let client = match YaracHttpClient::new(req.settings.verify_ssl, req.settings.follow_redirects, req.settings.timeout_ms, None) {
             Ok(c) => c,
@@ -364,8 +370,19 @@ Connection: close\r\n\r\n{}",
 
         for iter in 0..payload.iterations {
             for req in &payload.requests {
+                let mut req_clone = req.clone();
+                let mut scope = VariableScopeStack::new();
+                if let Some(data_rows) = &payload.data {
+                    if !data_rows.is_empty() {
+                        let row = &data_rows[iter % data_rows.len()];
+                        for (k, v) in row {
+                            scope.environment.insert(k.clone(), VariableValue::new(v.clone()));
+                        }
+                    }
+                }
+                let interpolated_url = scope.interpolate_request(&mut req_clone);
                 let req_start = Instant::now();
-                let res = client.execute(req, &self.workspace_dir, &req.url).await;
+                let res = client.execute(&req_clone, &self.workspace_dir, &interpolated_url).await;
                 let duration = req_start.elapsed().as_millis() as u64;
 
                 let _ = histogram.record(duration.max(1));
@@ -657,6 +674,10 @@ Connection: close\r\n\r\n{}",
                 if path.is_dir() {
                     Self::scan_yarac_files(&path, out);
                 } else if path.extension().and_then(|s| s.to_str()) == Some("yarac") {
+                    let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+                    if fname.starts_with('.') || fname.ends_with(".env.yarac") {
+                        continue;
+                    }
                     if let Ok(content) = std::fs::read_to_string(&path) {
                         let col_name = path
                             .parent()
@@ -678,5 +699,78 @@ Connection: close\r\n\r\n{}",
                 }
             }
         }
+    }
+
+    pub fn handle_mock_echo(method: &str, path: &str, body: &str) -> (u16, String) {
+        if path.contains("credentials") {
+            return (
+                200,
+                json!({
+                    "status": "success",
+                    "action": "rotate_keys",
+                    "message": "Credentials rotated and updated successfully",
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                })
+                .to_string(),
+            );
+        }
+
+        if method == "POST" && path.starts_with("/api/v1/users") {
+            return (
+                201,
+                json!({
+                    "id": "usr_99184821",
+                    "status": "created",
+                    "message": "User account created successfully",
+                    "created_at": chrono::Utc::now().to_rfc3339()
+                })
+                .to_string(),
+            );
+        }
+
+        if method == "GET" && path.starts_with("/api/v1/users") {
+            return (
+                200,
+                json!({
+                    "id": "usr_99184820",
+                    "name": "Jane Doe",
+                    "email": "admin@yarac.dev",
+                    "role": "superadmin",
+                    "account_tier": "enterprise",
+                    "metrics": {
+                        "active_keys": 4,
+                        "verified_domains": 2,
+                        "webhook_endpoints": 8,
+                        "failed_attempts": 0
+                    }
+                })
+                .to_string(),
+            );
+        }
+
+        if method == "DELETE" {
+            return (
+                200,
+                json!({
+                    "status": "deleted",
+                    "path": path,
+                    "message": "Resource deleted successfully"
+                })
+                .to_string(),
+            );
+        }
+
+        // Echo mock response
+        (
+            200,
+            json!({
+                "status": "echo",
+                "method": method,
+                "path": path,
+                "body": body,
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            })
+            .to_string(),
+        )
     }
 }

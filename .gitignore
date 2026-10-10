@@ -25,3 +25,5 @@ rustc-ice-*.txt
 node_modules
 frontend/dist
 src-tauri/target
+.yarac.local
+*.local

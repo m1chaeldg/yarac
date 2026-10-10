@@ -360,7 +360,10 @@ fn collect_yarac_files(target: &Path, out: &mut Vec<PathBuf>) {
                 if path.is_dir() {
                     collect_yarac_files(&path, out);
                 } else if path.extension().and_then(|s| s.to_str()) == Some("yarac") {
-                    out.push(path);
+                    let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+                    if !fname.starts_with('.') && !fname.ends_with(".env.yarac") {
+                        out.push(path);
+                    }
                 }
             }
         }

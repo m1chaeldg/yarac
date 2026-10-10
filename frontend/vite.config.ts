@@ -2,7 +2,7 @@ import { defineConfig, Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import fs from 'node:fs';
 import path from 'node:path';
-
+import http from 'node:http';
 import child_process from 'node:child_process';
 
 function yaracWorkspacePlugin(): Plugin {
@@ -64,6 +64,29 @@ function yaracWorkspacePlugin(): Plugin {
     apply: 'serve',
     configureServer(server) {
       setupWatcher();
+
+      // Ensure local Rust daemon is active on 127.0.0.1:9475
+      const checkReq = http.get('http://127.0.0.1:9475/api/health', (healthRes) => {
+        healthRes.resume();
+      });
+      checkReq.on('error', () => {
+        const cliBinary = process.platform === 'win32'
+          ? path.resolve(__dirname, '../target/debug/yarac-cli.exe')
+          : path.resolve(__dirname, '../target/debug/yarac-cli');
+        if (fs.existsSync(cliBinary)) {
+          console.log('⚡ Launching local yarac-cli daemon on port 9475...');
+          try {
+            const daemonProc = child_process.spawn(cliBinary, ['serve', '--workspace', workspaceRoot, '--port', '9475'], {
+              detached: true,
+              stdio: 'ignore'
+            });
+            daemonProc.unref();
+          } catch (spawnErr) {
+            console.warn('Could not auto-spawn yarac-cli daemon:', spawnErr);
+          }
+        }
+      });
+
       server.httpServer?.on('close', () => {
         if (fsWatcher) {
           fsWatcher.close();

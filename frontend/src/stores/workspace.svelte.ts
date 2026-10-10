@@ -96,6 +96,15 @@ export function serializeToDsl(req: YaracRequest): string {
   lines.push(`timeout_ms = 15000`);
   lines.push(``);
 
+  const activeParams = req.params.filter(p => p.enabled && p.key.trim());
+  if (activeParams.length > 0) {
+    lines.push(`[params.query]`);
+    for (const p of activeParams) {
+      lines.push(`${p.key.trim()} = "${p.value.replace(/"/g, '\\"')}"`);
+    }
+    lines.push(``);
+  }
+
   const activeHeaders = req.headers.filter(h => h.enabled && h.key.trim());
   if (activeHeaders.length > 0) {
     lines.push(`[headers]`);
@@ -161,6 +170,20 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
   const urlMatch = dsl.match(/url\s*=\s*"([^"]+)"/);
   if (urlMatch) updated.url = urlMatch[1];
 
+  const paramsMatch = dsl.match(/\[params\.query\]([\s\S]*?)(?=\n\[|$)/);
+  if (paramsMatch) {
+    const paramLines = paramsMatch[1].split('\n').filter(l => l.includes('='));
+    const parsedParams: KeyValuePair[] = paramLines.map(line => {
+      const parts = line.split('=');
+      const k = parts[0].trim();
+      const v = parts.slice(1).join('=').trim().replace(/^"(.*)"$/, '$1');
+      return { id: generateId(), key: k, value: v, enabled: true };
+    });
+    if (parsedParams.length > 0) {
+      updated.params = parsedParams;
+    }
+  }
+
   const headersMatch = dsl.match(/\[headers\]([\s\S]*?)(?=\n\[|$)/);
   if (headersMatch) {
     const headerLines = headersMatch[1].split('\n').filter(l => l.includes('='));
@@ -208,7 +231,7 @@ const defaultInitialWorkspaces: Workspace[] = [
         id: 'env_prod',
         name: 'Production',
         variables: [
-          { id: 'v1', key: 'base_url', value: 'https://api.yarac.dev', enabled: true },
+          { id: 'v1', key: 'base_url', value: 'http://127.0.0.1:9475', enabled: true },
           { id: 'v2', key: 'api_bearer_token', value: 'ey_prod_token_998124', enabled: true, isSecret: true },
           { id: 'v3', key: 'rate_limit_per_min', value: '600', enabled: true }
         ]
@@ -217,7 +240,7 @@ const defaultInitialWorkspaces: Workspace[] = [
         id: 'env_staging',
         name: 'Staging',
         variables: [
-          { id: 'v4', key: 'base_url', value: 'https://staging.api.yarac.dev', enabled: true },
+          { id: 'v4', key: 'base_url', value: 'http://127.0.0.1:9475', enabled: true },
           { id: 'v5', key: 'api_bearer_token', value: 'ey_staging_tok_382104', enabled: true, isSecret: true },
           { id: 'v6', key: 'rate_limit_per_min', value: '1200', enabled: true }
         ]
@@ -226,7 +249,7 @@ const defaultInitialWorkspaces: Workspace[] = [
         id: 'env_local',
         name: 'Local Dev',
         variables: [
-          { id: 'v7', key: 'base_url', value: 'http://127.0.0.1:8080', enabled: true },
+          { id: 'v7', key: 'base_url', value: 'http://127.0.0.1:9475', enabled: true },
           { id: 'v8', key: 'api_bearer_token', value: 'dev_local_secret_mock', enabled: true, isSecret: true }
         ]
       }
@@ -495,7 +518,8 @@ export class WorkspaceStore {
           for (const raw of data.requests) {
             const col = manifest.collections?.find((c: any) => c.name === raw.collectionName);
             const colId = col?.id || manifest.collections?.[0]?.id || 'col_default';
-            const reqId = 'req_' + generateId();
+            const slug = (raw.name || 'request').toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const reqId = raw.id || `req_${slug}`;
 
             const dummyReq: YaracRequest = {
               id: reqId,
@@ -525,6 +549,18 @@ export class WorkspaceStore {
           }
         }
 
+        const validOpenTabs = (manifest.open_tabs || []).filter((tid: string) =>
+          loadedRequests.some((r) => r.id === tid)
+        );
+        const resolvedOpenTabs = validOpenTabs.length > 0
+          ? validOpenTabs
+          : loadedRequests[0]
+            ? [loadedRequests[0].id]
+            : [];
+        const resolvedActiveTab = (manifest.active_tab && loadedRequests.some((r) => r.id === manifest.active_tab))
+          ? manifest.active_tab
+          : (resolvedOpenTabs[0] || '');
+
         const ws: Workspace = {
           id: manifest.id || 'ws_local',
           name: manifest.name || 'Local Workspace',
@@ -532,8 +568,8 @@ export class WorkspaceStore {
           requests: loadedRequests.length > 0 ? loadedRequests : defaultInitialWorkspaces[0].requests,
           environments: defaultInitialWorkspaces[0].environments,
           activeEnvironmentId: manifest.active_environment_id || defaultInitialWorkspaces[0].activeEnvironmentId,
-          openTabIds: manifest.open_tabs || (loadedRequests[0] ? [loadedRequests[0].id] : []),
-          activeTabId: manifest.active_tab || loadedRequests[0]?.id || ''
+          openTabIds: resolvedOpenTabs,
+          activeTabId: resolvedActiveTab
         };
 
         this.workspaces = [ws];

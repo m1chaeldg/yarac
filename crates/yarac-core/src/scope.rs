@@ -1,4 +1,4 @@
-use crate::models::VariableValue;
+use crate::models::{AuthConfig, BodyType, VariableValue, YaracRequest};
 use indexmap::IndexMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -125,6 +125,78 @@ impl VariableScopeStack {
 
         result
     }
+
+    /// Recursively interpolates all fields of a YaracRequest (url, headers, query params, auth, body).
+    pub fn interpolate_request(&self, req: &mut YaracRequest) -> String {
+        let interpolated_url = self.interpolate(&req.url);
+
+        // Interpolate headers
+        for (_, v) in req.headers.iter_mut() {
+            *v = self.interpolate(v);
+        }
+
+        // Interpolate query parameters
+        for (_, v) in req.query_params.iter_mut() {
+            *v = self.interpolate(v);
+        }
+
+        // Interpolate auth
+        if let Some(auth) = &mut req.auth {
+            match auth {
+                AuthConfig::Bearer { token } => {
+                    *token = self.interpolate(token);
+                }
+                AuthConfig::Basic { username, password } => {
+                    *username = self.interpolate(username);
+                    *password = self.interpolate(password);
+                }
+                AuthConfig::ApiKey { key, value, .. } => {
+                    *key = self.interpolate(key);
+                    *value = self.interpolate(value);
+                }
+                AuthConfig::AwsSigV4 {
+                    access_key,
+                    secret_key,
+                    region,
+                    service,
+                    session_token,
+                } => {
+                    *access_key = self.interpolate(access_key);
+                    *secret_key = self.interpolate(secret_key);
+                    *region = self.interpolate(region);
+                    *service = self.interpolate(service);
+                    if let Some(tok) = session_token {
+                        *tok = self.interpolate(tok);
+                    }
+                }
+            }
+        }
+
+        // Interpolate body
+        match &mut req.body {
+            BodyType::Json(s) => {
+                *s = self.interpolate(s);
+            }
+            BodyType::Raw { content, .. } => {
+                *content = self.interpolate(content);
+            }
+            BodyType::Form(map) => {
+                for (_, v) in map.iter_mut() {
+                    *v = self.interpolate(v);
+                }
+            }
+            BodyType::Multipart(parts) => {
+                for part in parts.iter_mut() {
+                    if let Some(val) = &mut part.value {
+                        *val = self.interpolate(val);
+                    }
+                }
+            }
+            BodyType::None => {}
+        }
+
+        interpolated_url
+    }
 }
 
 fn eval_dynamic_var(key: &str) -> Option<String> {
@@ -180,5 +252,37 @@ mod tests {
         let out = stack.interpolate("id={{$uuid}}");
         assert!(out.starts_with("id="));
         assert_eq!(out.len(), 3 + 36);
+    }
+
+    #[test]
+    fn test_interpolate_request_complete() {
+        let mut stack = VariableScopeStack::new();
+        stack.environment.insert("host".into(), VariableValue::new("127.0.0.1:9475"));
+        stack.environment.insert("token".into(), VariableValue::new("secret_bearer_123"));
+        stack.environment.insert("user_id".into(), VariableValue::new("42"));
+
+        let mut req = YaracRequest {
+            url: "http://{{host}}/api/users/{{user_id}}".into(),
+            headers: [("Authorization".into(), "Bearer {{token}}".into())].into_iter().collect(),
+            auth: Some(AuthConfig::Bearer { token: "{{token}}".into() }),
+            query_params: [("q".into(), "{{user_id}}".into())].into_iter().collect(),
+            body: BodyType::Json(r#"{"id": "{{user_id}}"}"#.into()),
+            ..Default::default()
+        };
+
+        let url = stack.interpolate_request(&mut req);
+        assert_eq!(url, "http://127.0.0.1:9475/api/users/42");
+        assert_eq!(req.headers.get("Authorization").unwrap(), "Bearer secret_bearer_123");
+        assert_eq!(req.query_params.get("q").unwrap(), "42");
+        if let Some(AuthConfig::Bearer { token }) = req.auth {
+            assert_eq!(token, "secret_bearer_123");
+        } else {
+            panic!("Auth not bearer");
+        }
+        if let BodyType::Json(ref s) = req.body {
+            assert_eq!(s, r#"{"id": "42"}"#);
+        } else {
+            panic!("Body not json");
+        }
     }
 }
