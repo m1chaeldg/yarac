@@ -57,11 +57,18 @@ function yaracWorkspacePlugin(): Plugin {
     }
   }
 
-  setupWatcher();
-
   return {
     name: 'yarac-workspace-fs',
+    apply: 'serve',
     configureServer(server) {
+      setupWatcher();
+      server.httpServer?.on('close', () => {
+        if (fsWatcher) {
+          fsWatcher.close();
+          fsWatcher = null;
+        }
+      });
+
       server.middlewares.use(async (req, res, next) => {
         const url = req.url || '';
 
