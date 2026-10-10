@@ -19,6 +19,7 @@ pub fn serialize(doc: &CstDocument) -> String {
                     }
                 }
             }
+            CstTopLevelItem::ConflictBlock(cb) => out.push_str(&cb.raw),
         }
     }
 

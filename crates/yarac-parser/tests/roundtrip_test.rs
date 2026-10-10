@@ -28,3 +28,11 @@ fn test_roundtrip_crlf_and_lf() {
     let cst_crlf = parse(crlf_input).expect("Parse CRLF");
     assert_eq!(serialize(&cst_crlf), crlf_input);
 }
+
+#[test]
+fn test_conflict_marker_roundtrip() {
+    let conflict_input = "version = \"1.0\"\n<<<<<<< HEAD\nname = \"Local Branch\"\n=======\nname = \"Remote Branch\"\n>>>>>>> main\n\n[headers]\nX-Key = \"Val\"\n";
+    let cst = parse(conflict_input).expect("Parse conflict block");
+    assert!(cst.has_conflicts(), "Should detect git conflict markers");
+    assert_eq!(serialize(&cst), conflict_input, "Roundtrip must preserve conflict markers");
+}

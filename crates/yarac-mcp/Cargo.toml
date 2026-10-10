@@ -8,6 +8,8 @@ license.workspace = true
 yarac-core = { path = "../yarac-core" }
 yarac-parser = { path = "../yarac-parser" }
 yarac-net = { path = "../yarac-net" }
+yarac-scripting = { path = "../yarac-scripting" }
+keyring.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

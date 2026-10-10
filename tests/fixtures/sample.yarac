@@ -11,3 +11,10 @@ timeout_ms = 5000
 
 [headers]
 Accept = "application/json"
+
+[scripts.post-response]
+```javascript
+yarac.test("Status is 200", () => {
+  expect(yarac.response.status).to.equal(200);
+});
+```

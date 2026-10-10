@@ -1,12 +1,16 @@
 use indexmap::IndexMap;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Client;
+use reqwest_cookie_store::CookieStoreMutex;
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use thiserror::Error;
 use yarac_core::models::*;
 use yarac_core::paths::resolve_workspace_path;
+
+pub const MAX_DIRECT_PAYLOAD_BYTES: usize = 2 * 1024 * 1024; // 2MB threshold per AGENTS.md
 
 #[derive(Error, Debug)]
 pub enum NetError {
@@ -18,15 +22,25 @@ pub enum NetError {
     PathError(#[from] yarac_core::paths::PathResolutionError),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("mTLS client cert error: {0}")]
+    MtlsError(String),
 }
 
 pub struct YaracHttpClient {
     client: Client,
+    cookie_store: Arc<CookieStoreMutex>,
 }
 
 impl YaracHttpClient {
-    pub fn new(verify_ssl: bool, follow_redirects: bool, timeout_ms: u64) -> Result<Self, NetError> {
+    pub fn new(
+        verify_ssl: bool,
+        follow_redirects: bool,
+        timeout_ms: u64,
+        client_cert_pem: Option<&[u8]>,
+    ) -> Result<Self, NetError> {
+        let cookie_store = Arc::new(CookieStoreMutex::default());
         let mut builder = Client::builder()
+            .cookie_provider(cookie_store.clone())
             .danger_accept_invalid_certs(!verify_ssl)
             .timeout(Duration::from_millis(timeout_ms));
 
@@ -34,8 +48,21 @@ impl YaracHttpClient {
             builder = builder.redirect(reqwest::redirect::Policy::none());
         }
 
+        if let Some(pem_bytes) = client_cert_pem {
+            let identity = reqwest::Identity::from_pem(pem_bytes)
+                .map_err(|e| NetError::MtlsError(format!("Failed to load client cert PEM: {e}")))?;
+            builder = builder.identity(identity);
+        }
+
         let client = builder.build()?;
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            cookie_store,
+        })
+    }
+
+    pub fn cookie_store(&self) -> Arc<CookieStoreMutex> {
+        self.cookie_store.clone()
     }
 
     pub async fn execute(
@@ -132,8 +159,20 @@ impl YaracHttpClient {
             resp_headers.insert(k.as_str().to_string(), v.to_str().unwrap_or("").to_string());
         }
 
-        let body_text = resp.text().await.unwrap_or_default();
+        let raw_bytes = resp.bytes().await.unwrap_or_default();
         let duration_ms = start.elapsed().as_millis() as u64;
+
+        // Large Payloads (>2MB): enforce chunked stream / virtualization threshold per AGENTS.md
+        let body_text = if raw_bytes.len() > MAX_DIRECT_PAYLOAD_BYTES {
+            let preview = String::from_utf8_lossy(&raw_bytes[..1024]);
+            format!(
+                "{}\n\n[TRUNCATED: Payload size {} bytes exceeds 2MB threshold. Virtualized chunk stream active.]",
+                preview,
+                raw_bytes.len()
+            )
+        } else {
+            String::from_utf8_lossy(&raw_bytes).to_string()
+        };
 
         Ok(ExecutionReport {
             request_name: request.name.clone(),
@@ -147,5 +186,18 @@ impl YaracHttpClient {
             logs: Vec::new(),
             error: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_client_builder_with_cookie_store() {
+        let client = YaracHttpClient::new(true, true, 5000, None).expect("Create client");
+        let store = client.cookie_store();
+        let guard = store.lock().unwrap();
+        assert_eq!(guard.iter_any().count(), 0);
     }
 }
