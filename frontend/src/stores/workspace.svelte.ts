@@ -574,6 +574,59 @@ export class WorkspaceStore {
     return newReq;
   }
 
+  renameRequest(requestId: string, newName: string): boolean {
+    const ws = this.currentWorkspace;
+    const req = ws.requests.find(r => r.id === requestId);
+    if (!req) return false;
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    req.name = trimmed;
+    req.dslContent = serializeToDsl(req);
+    req.isDirty = true;
+    return true;
+  }
+
+  duplicateRequest(requestId: string): YaracRequest | null {
+    const ws = this.currentWorkspace;
+    const source = ws.requests.find(r => r.id === requestId);
+    if (!source) return null;
+
+    const reqId = 'req_' + generateId();
+    const cloned: YaracRequest = {
+      ...JSON.parse(JSON.stringify(source)),
+      id: reqId,
+      name: `${source.name} (Copy)`,
+      isDirty: false
+    };
+
+    // Refresh IDs for cloned sub-arrays
+    cloned.params = cloned.params.map(p => ({ ...p, id: generateId() }));
+    cloned.headers = cloned.headers.map(h => ({ ...h, id: generateId() }));
+    if (cloned.body && cloned.body.formData) {
+      cloned.body.formData = cloned.body.formData.map(f => ({ ...f, id: generateId() }));
+    }
+    cloned.dslContent = serializeToDsl(cloned);
+
+    const sourceIndex = ws.requests.findIndex(r => r.id === requestId);
+    if (sourceIndex >= 0) {
+      ws.requests.splice(sourceIndex + 1, 0, cloned);
+    } else {
+      ws.requests.push(cloned);
+    }
+    this.openTab(reqId);
+    return cloned;
+  }
+
+  deleteRequest(requestId: string): boolean {
+    const ws = this.currentWorkspace;
+    const idx = ws.requests.findIndex(r => r.id === requestId);
+    if (idx === -1) return false;
+
+    ws.requests.splice(idx, 1);
+    this.closeTab(requestId);
+    return true;
+  }
+
   // Tabs management
   openTab(requestId: string) {
     const ws = this.currentWorkspace;

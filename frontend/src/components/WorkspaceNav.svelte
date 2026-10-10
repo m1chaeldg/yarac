@@ -1,5 +1,9 @@
 <script lang="ts">
   import { workspaceStore, type YaracRequest } from '../stores/workspace.svelte';
+  import ContextMenu, { type ContextMenuItem } from './ContextMenu.svelte';
+  import CodeGeneratorModal from './CodeGeneratorModal.svelte';
+  import RequestInfoModal from './RequestInfoModal.svelte';
+  import { resolveUrl, CODE_LANGUAGES, getRelativeRequestPath } from '../utils/codeGenerators';
 
   interface Props {
     activeView: 'studio' | 'runner';
@@ -15,6 +19,23 @@
   let newWorkspaceName = $state('');
   let isAddingCollection = $state(false);
   let newCollectionName = $state('');
+
+  // Context Menu & Modal States
+  let contextMenu = $state<{ x: number; y: number; req: YaracRequest; col: any } | null>(null);
+  let codeGenReq = $state<YaracRequest | null>(null);
+  let infoReq = $state<{ req: YaracRequest; col: any } | null>(null);
+  let renameReq = $state<{ req: YaracRequest; newName: string } | null>(null);
+  let deleteReq = $state<YaracRequest | null>(null);
+  let toast = $state<{ text: string; icon: string } | null>(null);
+
+  function showToast(text: string, icon = '✓') {
+    toast = { text, icon };
+    setTimeout(() => {
+      if (toast?.text === text) {
+        toast = null;
+      }
+    }, 2500);
+  }
 
   function handleCreateWorkspace() {
     if (!newWorkspaceName.trim()) return;
@@ -33,6 +54,133 @@
   function handleCreateRequest(collectionId: string) {
     workspaceStore.createRequest(collectionId, 'New Request', 'GET');
     onSelectView('studio');
+  }
+
+  function handleCommitRename() {
+    if (!renameReq || !renameReq.newName.trim()) return;
+    workspaceStore.renameRequest(renameReq.req.id, renameReq.newName);
+    showToast(`Renamed to "${renameReq.newName.trim()}"`, '✏️');
+    renameReq = null;
+  }
+
+  function handleCommitDelete() {
+    if (!deleteReq) return;
+    const name = deleteReq.name;
+    workspaceStore.deleteRequest(deleteReq.id);
+    showToast(`Deleted "${name}"`, '🗑️');
+    deleteReq = null;
+  }
+
+  function getContextMenuItems(req: YaracRequest, col: any): ContextMenuItem[] {
+    return [
+      {
+        id: 'rename',
+        label: 'Rename',
+        icon: '✏️',
+        shortcut: 'F2',
+        action: () => {
+          renameReq = { req, newName: req.name };
+        }
+      },
+      {
+        id: 'duplicate',
+        label: 'Clone / Duplicate',
+        icon: '📄',
+        shortcut: 'Ctrl+D',
+        action: () => {
+          const cloned = workspaceStore.duplicateRequest(req.id);
+          if (cloned) {
+            showToast(`Cloned as "${cloned.name}"`, '📄');
+            onSelectView('studio');
+          }
+        }
+      },
+      {
+        id: 'copy-curl',
+        label: 'Copy as cURL',
+        icon: '⚡',
+        action: async () => {
+          const curlLang = CODE_LANGUAGES.find(l => l.id === 'curl');
+          const code = curlLang?.generate(req, 'bash') || '';
+          try {
+            await navigator.clipboard.writeText(code);
+            showToast('cURL copied to clipboard!', '⚡');
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      },
+      {
+        id: 'copy-url',
+        label: 'Copy URL',
+        icon: '🔗',
+        action: async () => {
+          const url = resolveUrl(req);
+          try {
+            await navigator.clipboard.writeText(url);
+            showToast('URL copied to clipboard!', '🔗');
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      },
+      {
+        id: 'copy-dsl',
+        label: 'Copy .yarac DSL',
+        icon: '📋',
+        action: async () => {
+          try {
+            await navigator.clipboard.writeText(req.dslContent);
+            showToast('.yarac DSL copied to clipboard!', '📋');
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      },
+      {
+        id: 'reveal',
+        label: 'Reveal in Explorer',
+        icon: '📂',
+        action: async () => {
+          const relPath = getRelativeRequestPath(col.name, req.name);
+          try {
+            await navigator.clipboard.writeText(relPath);
+            showToast(`Path copied: ${relPath}`, '📂');
+          } catch {
+            showToast(`File: ${relPath}`, '📂');
+          }
+        }
+      },
+      { id: 'sep1', label: '', separator: true, action: () => {} },
+      {
+        id: 'generate-code',
+        label: 'Generate Code...',
+        icon: '🚀',
+        shortcut: 'Ctrl+G',
+        action: () => {
+          codeGenReq = req;
+        }
+      },
+      {
+        id: 'info',
+        label: 'Request Info',
+        icon: 'ℹ️',
+        action: () => {
+          infoReq = { req, col };
+        }
+      },
+      { id: 'sep2', label: '', separator: true, action: () => {} },
+      {
+        id: 'delete',
+        label: 'Delete Request',
+        icon: '🗑️',
+        danger: true,
+        shortcut: 'Del',
+        action: () => {
+          deleteReq = req;
+        }
+      }
+    ];
   }
 
   function getMethodColor(method: string): string {
@@ -201,16 +349,50 @@
                   workspaceStore.openTab(req.id);
                   onSelectView('studio');
                 }}
-                onkeydown={(e) => e.key === 'Enter' && (workspaceStore.openTab(req.id), onSelectView('studio'))}
-                class="px-2 py-1.5 rounded flex items-center gap-2 cursor-pointer transition-colors text-xs
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') {
+                    workspaceStore.openTab(req.id);
+                    onSelectView('studio');
+                  } else if (e.key === 'F2') {
+                    renameReq = { req, newName: req.name };
+                  } else if (e.key === 'Delete') {
+                    deleteReq = req;
+                  }
+                }}
+                oncontextmenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  contextMenu = {
+                    x: e.clientX,
+                    y: e.clientY,
+                    req,
+                    col
+                  };
+                }}
+                class="px-2 py-1.5 rounded flex items-center justify-between group cursor-pointer transition-colors text-xs
                   {isCurrent
                     ? 'bg-sky-950/60 text-sky-300 font-medium border border-sky-800/40'
                     : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'}"
               >
-                <span class="text-[9px] font-bold font-mono uppercase {getMethodColor(req.method)}">
-                  {req.method}
-                </span>
-                <span class="truncate">{req.name}</span>
+                <div class="flex items-center gap-2 truncate">
+                  <span class="text-[9px] font-bold font-mono uppercase {getMethodColor(req.method)}">
+                    {req.method}
+                  </span>
+                  <span class="truncate">{req.name}</span>
+                </div>
+
+                <button
+                  type="button"
+                  title="Request menu"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    contextMenu = { x: rect.right, y: rect.bottom, req, col };
+                  }}
+                  class="opacity-0 group-hover:opacity-100 hover:text-white px-1 py-0.5 rounded text-[10px] text-slate-500 hover:bg-slate-700/60"
+                >
+                  •••
+                </button>
               </div>
             {/each}
           </div>
@@ -259,3 +441,139 @@
     </button>
   </div>
 </div>
+
+<!-- Floating Context Menu -->
+{#if contextMenu}
+  <ContextMenu
+    x={contextMenu.x}
+    y={contextMenu.y}
+    items={getContextMenuItems(contextMenu.req, contextMenu.col)}
+    onClose={() => contextMenu = null}
+  />
+{/if}
+
+<!-- Code Generator Modal -->
+<CodeGeneratorModal
+  isOpen={Boolean(codeGenReq)}
+  request={codeGenReq}
+  onClose={() => codeGenReq = null}
+/>
+
+<!-- Request Info Modal -->
+<RequestInfoModal
+  isOpen={Boolean(infoReq)}
+  request={infoReq ? infoReq.req : null}
+  collection={infoReq ? infoReq.col : null}
+  onClose={() => infoReq = null}
+/>
+
+<!-- Rename Request Dialog -->
+{#if renameReq}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+    onclick={() => renameReq = null}
+    role="presentation"
+  >
+    <div
+      class="bg-slate-900 border border-slate-700 rounded-xl p-4 w-80 shadow-2xl space-y-3"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+          <span>✏️</span>
+          <span>Rename Request</span>
+        </h3>
+        <button
+          type="button"
+          onclick={() => renameReq = null}
+          class="text-slate-400 hover:text-slate-200 text-xs"
+        >
+          ✕
+        </button>
+      </div>
+
+      <input
+        type="text"
+        bind:value={renameReq.newName}
+        onkeydown={(e) => {
+          if (e.key === 'Enter') handleCommitRename();
+          if (e.key === 'Escape') renameReq = null;
+        }}
+        class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
+      />
+
+      <div class="flex justify-end gap-2 text-xs">
+        <button
+          type="button"
+          onclick={() => renameReq = null}
+          class="px-2.5 py-1 rounded text-slate-400 hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onclick={handleCommitRename}
+          class="px-3 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Delete Request Confirmation Dialog -->
+{#if deleteReq}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+    onclick={() => deleteReq = null}
+    role="presentation"
+  >
+    <div
+      class="bg-slate-900 border border-rose-900/60 rounded-xl p-4 w-80 shadow-2xl space-y-3"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <div class="flex items-center gap-2 text-rose-400 text-xs font-bold">
+        <span>⚠️</span>
+        <span>Delete Request</span>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        Are you sure you want to delete <span class="font-semibold text-slate-100">"{deleteReq.name}"</span>? This will remove the request and close its tab.
+      </p>
+
+      <div class="flex justify-end gap-2 text-xs">
+        <button
+          type="button"
+          onclick={() => deleteReq = null}
+          class="px-2.5 py-1 rounded text-slate-400 hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onclick={handleCommitDelete}
+          class="px-3 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-medium"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Toast Feedback -->
+{#if toast}
+  <div class="fixed bottom-4 right-4 z-50 px-3.5 py-2 rounded-lg bg-slate-800/95 border border-slate-700 text-slate-100 text-xs font-medium shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-md">
+    <span>{toast.icon}</span>
+    <span>{toast.text}</span>
+  </div>
+{/if}
