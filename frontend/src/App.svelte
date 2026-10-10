@@ -1,5 +1,6 @@
 <script lang="ts">
   import { workspaceStore, type YaracRequest } from './stores/workspace.svelte';
+  import { backendApi } from './services/backendApi';
   import WorkspaceNav from './components/WorkspaceNav.svelte';
   import TabBar from './components/TabBar.svelte';
   import VisualEditor from './components/VisualEditor.svelte';
@@ -52,64 +53,56 @@
     activeView = 'studio';
   }
 
-  function triggerSend() {
-    if (!activeReq) return;
+  async function triggerSend() {
+    if (!activeReq || isSending) return;
     isSending = true;
 
-    setTimeout(() => {
-      isSending = false;
-      const isPost = activeReq?.method === 'POST';
-      const sampleBody = isPost
-        ? JSON.stringify({
-            id: 'usr_' + Math.random().toString(36).substring(2, 10),
-            status: 'created',
-            created_at: new Date().toISOString(),
-            active: true,
-            tier: 'enterprise',
-            stats: {
-              active_keys: 5,
-              logins_count: 342,
-              quota_utilized_pct: 74.2,
-              api_calls_today: 5120
-            },
-            teams: [
-              { name: 'Core Infrastructure', members: 14, lead: 'Alice Chen' },
-              { name: 'Identity & Access', members: 8, lead: 'Marcus Vance' },
-              { name: 'Stream Processing', members: 21, lead: 'Sofia Rodriguez' }
-            ]
-          }, null, 2)
-        : JSON.stringify({
-            id: 'usr_99184820',
-            email: 'admin@yarac.dev',
-            role: 'superadmin',
-            active: true,
-            account_tier: 'enterprise',
-            metrics: {
-              active_keys: 4,
-              verified_domains: 2,
-              webhook_endpoints: 8,
-              failed_attempts: 0
-            }
-          }, null, 2);
+    try {
+      const activeEnv = workspaceStore.currentWorkspace.environments.find(
+        (e) => e.id === workspaceStore.currentWorkspace.activeEnvironmentId
+      );
+      const envVars: Record<string, string> = {};
+      if (activeEnv) {
+        for (const v of activeEnv.variables) {
+          if (v.enabled && v.key.trim()) {
+            envVars[v.key.trim()] = v.value;
+          }
+        }
+      }
 
+      const report = await backendApi.executeRequest(activeReq, envVars);
       if (activeReq) {
+        const bodyStr = report.response_body ?? '';
         activeReq.response = {
-          status: isPost ? 201 : 200,
-          statusText: isPost ? 'Created' : 'OK',
-          durationMs: Math.floor(Math.random() * 40) + 15,
-          sizeBytes: sampleBody.length * 2,
-          headers: {
-            'content-type': 'application/json; charset=utf-8',
-            'x-ratelimit-remaining': '598',
-            'x-request-id': 'req_' + Math.random().toString(36).substring(2, 10),
-            'date': new Date().toUTCString()
-          },
-          body: sampleBody,
-          timestamp: new Date().toLocaleTimeString()
+          status: report.status_code || (report.error ? 0 : 200),
+          statusText: report.error
+            ? report.error
+            : report.status_code
+              ? `Status ${report.status_code}`
+              : 'OK',
+          durationMs: report.duration_ms,
+          sizeBytes: bodyStr.length,
+          headers: report.response_headers || {},
+          body: bodyStr,
+          timestamp: new Date().toLocaleTimeString(),
         };
         activeReq.isDirty = false;
       }
-    }, 280);
+    } catch (err: any) {
+      if (activeReq) {
+        activeReq.response = {
+          status: 0,
+          statusText: err?.message || 'Execution Error',
+          durationMs: 0,
+          sizeBytes: 0,
+          headers: {},
+          body: JSON.stringify({ error: err?.message || String(err) }, null, 2),
+          timestamp: new Date().toLocaleTimeString(),
+        };
+      }
+    } finally {
+      isSending = false;
+    }
   }
 </script>
 
@@ -311,18 +304,25 @@
 
   <!-- 3-Way Conflict Modal -->
   <ConflictModal
-    isOpen={isConflictOpen}
-    filePath={conflictFilePath}
-    baseContent={baseContent}
-    oursContent={oursContent}
-    theirsContent={theirsContent}
+    isOpen={isConflictOpen || !!workspaceStore.activeConflict}
+    filePath={workspaceStore.activeConflict?.filePath ?? conflictFilePath}
+    baseContent={workspaceStore.activeConflict?.baseContent ?? baseContent}
+    oursContent={workspaceStore.activeConflict?.oursContent ?? oursContent}
+    theirsContent={workspaceStore.activeConflict?.theirsContent ?? theirsContent}
     onresolve={(res) => {
-      if (activeReq) {
+      if (workspaceStore.activeConflict) {
+        workspaceStore.resolveConflict(res);
+      } else if (activeReq) {
         workspaceStore.updateActiveRequestFromDsl(res);
       }
       isConflictOpen = false;
     }}
-    oncancel={() => isConflictOpen = false}
+    oncancel={() => {
+      if (workspaceStore.activeConflict) {
+        workspaceStore.resolveConflict(null);
+      }
+      isConflictOpen = false;
+    }}
   />
 
   <!-- Interoperability Hub Modal (OpenAPI v3.1 / Bruno) -->

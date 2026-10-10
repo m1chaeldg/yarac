@@ -1,4 +1,5 @@
 import type { FlowState } from '../components/FlowPanel.svelte';
+import { backendApi, type WatcherEvent } from '../services/backendApi';
 
 export interface KeyValuePair {
   id: string;
@@ -74,8 +75,6 @@ export interface Workspace {
   openTabIds: string[];
   activeTabId: string;
 }
-
-const STORAGE_KEY = 'yarac_workspaces_v2';
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 10);
@@ -446,36 +445,119 @@ for (const ws of defaultInitialWorkspaces) {
   }
 }
 
-function loadWorkspaces(): Workspace[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.warn('Failed to load workspaces from localStorage:', e);
-  }
-  return defaultInitialWorkspaces;
-}
-
 export class WorkspaceStore {
-  workspaces = $state<Workspace[]>(loadWorkspaces());
-  activeWorkspaceId = $state<string>(loadWorkspaces()[0]?.id || 'ws_default');
+  workspaces = $state<Workspace[]>(defaultInitialWorkspaces);
+  activeWorkspaceId = $state<string>(defaultInitialWorkspaces[0]?.id || 'ws_default');
+  activeConflict = $state<{
+    filePath: string;
+    baseContent: string;
+    oursContent: string;
+    theirsContent: string;
+    requestId: string;
+  } | null>(null);
+
+  private saveTimeout: any = null;
+  private isInitialized = false;
 
   constructor() {
+    this.initFromDisk();
+
     $effect.root(() => {
       $effect(() => {
-        // Auto-save whenever workspaces change
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.workspaces));
-        } catch (err) {
-          console.error('Failed to auto-save workspace state:', err);
+        // Track changes to workspaces for debounced disk persistence
+        const current = this.currentWorkspace;
+        const allWorkspaces = this.workspaces;
+        if (!this.isInitialized) return;
+
+        if (this.saveTimeout) {
+          clearTimeout(this.saveTimeout);
         }
+        this.saveTimeout = setTimeout(() => {
+          this.persistToDisk();
+        }, 400);
       });
     });
+
+    // Subscribe to real-time external file watcher events
+    backendApi.subscribeToWatcher((event) => {
+      this.handleExternalFileChange(event);
+    });
+  }
+
+  async initFromDisk() {
+    try {
+      const data = await backendApi.loadWorkspaceFromDisk();
+      if (data && data.manifest) {
+        const manifest = data.manifest;
+        const loadedRequests: YaracRequest[] = [];
+
+        if (Array.isArray(data.requests)) {
+          for (const raw of data.requests) {
+            const col = manifest.collections?.find((c: any) => c.name === raw.collectionName);
+            const colId = col?.id || manifest.collections?.[0]?.id || 'col_default';
+            const reqId = 'req_' + generateId();
+
+            const dummyReq: YaracRequest = {
+              id: reqId,
+              collectionId: colId,
+              name: raw.name || 'Request',
+              method: 'GET',
+              url: 'http://localhost',
+              params: [],
+              headers: [],
+              auth: { type: 'inherit' },
+              body: { type: 'none', rawContent: '', formData: [] },
+              flow: {
+                once_per_run: false,
+                retry_until: '',
+                retry_interval_ms: 500,
+                max_retries: 3,
+                delay_ms: 0,
+                jitter_min_ms: 0,
+                jitter_max_ms: 0
+              },
+              dslContent: raw.dslContent || '',
+              isDirty: false
+            };
+
+            const parsed = parseDslToRequest(raw.dslContent || '', dummyReq);
+            loadedRequests.push(parsed);
+          }
+        }
+
+        const ws: Workspace = {
+          id: manifest.id || 'ws_local',
+          name: manifest.name || 'Local Workspace',
+          collections: manifest.collections || [{ id: 'col_default', name: 'General' }],
+          requests: loadedRequests.length > 0 ? loadedRequests : defaultInitialWorkspaces[0].requests,
+          environments: defaultInitialWorkspaces[0].environments,
+          activeEnvironmentId: manifest.active_environment_id || defaultInitialWorkspaces[0].activeEnvironmentId,
+          openTabIds: manifest.open_tabs || (loadedRequests[0] ? [loadedRequests[0].id] : []),
+          activeTabId: manifest.active_tab || loadedRequests[0]?.id || ''
+        };
+
+        this.workspaces = [ws];
+        this.activeWorkspaceId = ws.id;
+      }
+    } catch (e) {
+      console.warn('Could not initialize workspace from disk:', e);
+    } finally {
+      this.isInitialized = true;
+      this.persistToDisk();
+    }
+  }
+
+  async persistToDisk() {
+    const ws = this.currentWorkspace;
+    const manifest = {
+      id: ws.id,
+      name: ws.name,
+      collections: ws.collections,
+      active_environment_id: ws.activeEnvironmentId,
+      open_tabs: ws.openTabIds,
+      active_tab: ws.activeTabId
+    };
+    await backendApi.saveWorkspaceToDisk(manifest, ws.requests);
   }
 
   get currentWorkspace(): Workspace {
@@ -731,6 +813,114 @@ export class WorkspaceStore {
     } else {
       target.variables.push(copied);
     }
+  }
+
+  // Tree Reordering Actions
+  reorderRequests(collectionId: string, fromIndex: number, toIndex: number): void {
+    const ws = this.currentWorkspace;
+    const colRequests = ws.requests.filter(r => r.collectionId === collectionId);
+    if (fromIndex < 0 || fromIndex >= colRequests.length || toIndex < 0 || toIndex >= colRequests.length || fromIndex === toIndex) return;
+
+    const moved = colRequests[fromIndex];
+    colRequests.splice(fromIndex, 1);
+    colRequests.splice(toIndex, 0, moved);
+
+    const otherRequests = ws.requests.filter(r => r.collectionId !== collectionId);
+    ws.requests = [...otherRequests, ...colRequests];
+    this.persistToDisk();
+  }
+
+  moveRequestToCollection(requestId: string, targetCollectionId: string, targetIndex?: number): void {
+    const ws = this.currentWorkspace;
+    const req = ws.requests.find(r => r.id === requestId);
+    if (!req) return;
+
+    req.collectionId = targetCollectionId;
+
+    if (typeof targetIndex === 'number') {
+      const targetColReqs = ws.requests.filter(r => r.collectionId === targetCollectionId && r.id !== requestId);
+      targetColReqs.splice(targetIndex, 0, req);
+      const otherReqs = ws.requests.filter(r => r.collectionId !== targetCollectionId);
+      ws.requests = [...otherReqs, ...targetColReqs];
+    }
+    this.persistToDisk();
+  }
+
+  reorderCollections(fromIndex: number, toIndex: number): void {
+    const ws = this.currentWorkspace;
+    if (fromIndex < 0 || fromIndex >= ws.collections.length || toIndex < 0 || toIndex >= ws.collections.length || fromIndex === toIndex) return;
+    const moved = ws.collections[fromIndex];
+    ws.collections.splice(fromIndex, 1);
+    ws.collections.splice(toIndex, 0, moved);
+    this.persistToDisk();
+  }
+
+  // Live File Watcher Event Handler
+  handleExternalFileChange(event: WatcherEvent) {
+    const ws = this.currentWorkspace;
+    const fileName = event.path.split(/[/\\]/).pop() || '';
+    const reqName = fileName.replace(/\.yarac$/, '');
+
+    const existingReq = ws.requests.find(r => r.name.toLowerCase() === reqName.toLowerCase());
+
+    if (event.kind === 'deleted') {
+      if (existingReq) {
+        this.deleteRequest(existingReq.id);
+      }
+      return;
+    }
+
+    if (event.kind === 'created' || event.kind === 'modified') {
+      const content = event.content || '';
+      if (!content.trim()) return;
+
+      if (existingReq) {
+        // External edit clash detection (3-way conflict modal required per AGENTS.md)
+        if (existingReq.isDirty && existingReq.dslContent.trim() !== content.trim()) {
+          this.activeConflict = {
+            filePath: event.path,
+            baseContent: serializeToDsl(existingReq),
+            oursContent: existingReq.dslContent,
+            theirsContent: content,
+            requestId: existingReq.id
+          };
+        } else {
+          // Clean auto-sync from disk
+          existingReq.dslContent = content;
+          const parsed = parseDslToRequest(content, existingReq);
+          Object.assign(existingReq, parsed);
+          existingReq.isDirty = false;
+        }
+      } else if (event.kind === 'created') {
+        const parts = event.path.split(/[/\\]/);
+        const colDirName = parts[parts.length - 2] || 'General';
+        let col = ws.collections.find(c => c.name.toLowerCase() === colDirName.toLowerCase());
+        if (!col) {
+          const colId = this.addCollection(colDirName);
+          col = ws.collections.find(c => c.id === colId);
+        }
+        if (col) {
+          const newReq = this.createRequest(col.id, reqName, 'GET');
+          newReq.dslContent = content;
+          const parsed = parseDslToRequest(content, newReq);
+          Object.assign(newReq, parsed);
+          newReq.isDirty = false;
+        }
+      }
+    }
+  }
+
+  resolveConflict(resolvedContent: string) {
+    if (!this.activeConflict) return;
+    const req = this.currentWorkspace.requests.find(r => r.id === this.activeConflict!.requestId);
+    if (req) {
+      req.dslContent = resolvedContent;
+      const parsed = parseDslToRequest(resolvedContent, req);
+      Object.assign(req, parsed);
+      req.isDirty = false;
+      this.persistToDisk();
+    }
+    this.activeConflict = null;
   }
 }
 

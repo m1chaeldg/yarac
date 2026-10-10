@@ -28,6 +28,118 @@
   let deleteReq = $state<YaracRequest | null>(null);
   let toast = $state<{ text: string; icon: string } | null>(null);
 
+  // Drag-and-Drop Reordering States
+  let draggedReqId = $state<string | null>(null);
+  let draggedColId = $state<string | null>(null);
+  let dragOverReqId = $state<string | null>(null);
+  let dragOverColId = $state<string | null>(null);
+  let dropPosition = $state<'before' | 'after' | 'inside' | null>(null);
+
+  function handleReqDragStart(e: DragEvent, reqId: string) {
+    draggedReqId = reqId;
+    draggedColId = null;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', reqId);
+    }
+  }
+
+  function handleReqDragOver(e: DragEvent, targetReqId: string) {
+    if (!draggedReqId || draggedReqId === targetReqId) return;
+    e.preventDefault();
+    dragOverReqId = targetReqId;
+    dragOverColId = null;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    dropPosition = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+  }
+
+  function handleReqDrop(e: DragEvent, targetReq: YaracRequest, targetColId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedReqId || draggedReqId === targetReq.id) {
+      handleDragEnd();
+      return;
+    }
+
+    const ws = workspaceStore.currentWorkspace;
+    const sourceReq = ws.requests.find(r => r.id === draggedReqId);
+    if (!sourceReq) return;
+
+    const colReqs = ws.requests.filter(r => r.collectionId === targetColId);
+    let targetIndex = colReqs.findIndex(r => r.id === targetReq.id);
+    if (targetIndex === -1) targetIndex = 0;
+    if (dropPosition === 'after') {
+      targetIndex += 1;
+    }
+
+    if (sourceReq.collectionId === targetColId) {
+      const fromIndex = colReqs.findIndex(r => r.id === draggedReqId);
+      if (fromIndex !== -1) {
+        const adjustedTarget = fromIndex < targetIndex ? targetIndex - 1 : targetIndex;
+        workspaceStore.reorderRequests(targetColId, fromIndex, adjustedTarget);
+        showToast('Request reordered', '↕️');
+      }
+    } else {
+      workspaceStore.moveRequestToCollection(draggedReqId, targetColId, targetIndex);
+      showToast('Moved to collection', '📁');
+    }
+
+    handleDragEnd();
+  }
+
+  function handleColHeaderDragStart(e: DragEvent, colId: string) {
+    draggedColId = colId;
+    draggedReqId = null;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', colId);
+    }
+  }
+
+  function handleColHeaderDragOver(e: DragEvent, colId: string) {
+    e.preventDefault();
+    if (draggedReqId) {
+      dragOverColId = colId;
+      dragOverReqId = null;
+      dropPosition = 'inside';
+    } else if (draggedColId && draggedColId !== colId) {
+      dragOverColId = colId;
+      dragOverReqId = null;
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      dropPosition = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    }
+  }
+
+  function handleColHeaderDrop(e: DragEvent, targetColId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (draggedReqId) {
+      workspaceStore.moveRequestToCollection(draggedReqId, targetColId);
+      showToast('Moved into collection', '📁');
+    } else if (draggedColId && draggedColId !== targetColId) {
+      const cols = workspaceStore.currentWorkspace.collections;
+      const fromIdx = cols.findIndex(c => c.id === draggedColId);
+      let toIdx = cols.findIndex(c => c.id === targetColId);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        if (dropPosition === 'after') toIdx += 1;
+        const adjustedTarget = fromIdx < toIdx ? toIdx - 1 : toIdx;
+        workspaceStore.reorderCollections(fromIdx, adjustedTarget);
+        showToast('Collection reordered', '↕️');
+      }
+    }
+
+    handleDragEnd();
+  }
+
+  function handleDragEnd() {
+    draggedReqId = null;
+    draggedColId = null;
+    dragOverColId = null;
+    dragOverReqId = null;
+    dropPosition = null;
+  }
+
   function showToast(text: string, icon = '✓') {
     toast = { text, icon };
     setTimeout(() => {
@@ -167,6 +279,35 @@
         icon: 'ℹ️',
         action: () => {
           infoReq = { req, col };
+        }
+      },
+      { id: 'sep_dnd', label: '', separator: true, action: () => {} },
+      {
+        id: 'move-up',
+        label: 'Move Up',
+        icon: '⬆️',
+        shortcut: 'Alt+Up',
+        action: () => {
+          const colReqs = workspaceStore.currentWorkspace.requests.filter(r => r.collectionId === col.id);
+          const idx = colReqs.findIndex(r => r.id === req.id);
+          if (idx > 0) {
+            workspaceStore.reorderRequests(col.id, idx, idx - 1);
+            showToast('Moved request up', '⬆️');
+          }
+        }
+      },
+      {
+        id: 'move-down',
+        label: 'Move Down',
+        icon: '⬇️',
+        shortcut: 'Alt+Down',
+        action: () => {
+          const colReqs = workspaceStore.currentWorkspace.requests.filter(r => r.collectionId === col.id);
+          const idx = colReqs.findIndex(r => r.id === req.id);
+          if (idx >= 0 && idx < colReqs.length - 1) {
+            workspaceStore.reorderRequests(col.id, idx, idx + 1);
+            showToast('Moved request down', '⬇️');
+          }
         }
       },
       { id: 'sep2', label: '', separator: true, action: () => {} },
@@ -319,32 +460,57 @@
         </div>
       {/if}
 
-      {#each workspaceStore.currentWorkspace.collections as col (col.id)}
+      {#each workspaceStore.currentWorkspace.collections as col, colIdx (col.id)}
         {@const colRequests = workspaceStore.currentWorkspace.requests.filter(r => r.collectionId === col.id)}
+        {@const isColOver = dragOverColId === col.id}
         <div class="space-y-0.5">
-          <!-- Folder Header -->
-          <div class="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-800/40 text-slate-300 font-semibold group cursor-pointer">
+          <!-- Folder Header with Drag and Drop -->
+          <div
+            role="button"
+            tabindex="0"
+            draggable="true"
+            ondragstart={(e) => handleColHeaderDragStart(e, col.id)}
+            ondragover={(e) => handleColHeaderDragOver(e, col.id)}
+            ondrop={(e) => handleColHeaderDrop(e, col.id)}
+            ondragend={handleDragEnd}
+            class="flex items-center justify-between px-2 py-1 rounded transition-colors text-slate-300 font-semibold group cursor-grab active:cursor-grabbing select-none
+              {draggedColId === col.id ? 'opacity-40 border border-dashed border-sky-400' : ''}
+              {isColOver && dropPosition === 'inside' ? 'bg-sky-950/80 ring-1 ring-sky-400 text-sky-200' : 'hover:bg-slate-800/40'}
+              {isColOver && dropPosition === 'before' ? 'border-t-2 border-sky-400' : ''}
+              {isColOver && dropPosition === 'after' ? 'border-b-2 border-sky-400' : ''}"
+          >
             <div class="flex items-center gap-1.5 truncate">
+              <span class="text-slate-500 opacity-40 group-hover:opacity-100 text-[10px]">⋮⋮</span>
               <span class="text-amber-400 text-xs">📁</span>
               <span class="truncate">{col.name}</span>
             </div>
-            <button
-              type="button"
-              title="Add request to this collection"
-              onclick={(e) => { e.stopPropagation(); handleCreateRequest(col.id); }}
-              class="opacity-0 group-hover:opacity-100 text-[10px] text-sky-400 hover:text-sky-300 px-1 rounded hover:bg-slate-700"
-            >
-              +req
-            </button>
+            <div class="flex items-center gap-1">
+              <span class="text-[10px] text-slate-500 font-mono">{colRequests.length}</span>
+              <button
+                type="button"
+                title="Add request to this collection"
+                onclick={(e) => { e.stopPropagation(); handleCreateRequest(col.id); }}
+                class="opacity-0 group-hover:opacity-100 text-[10px] text-sky-400 hover:text-sky-300 px-1 rounded hover:bg-slate-700"
+              >
+                +req
+              </button>
+            </div>
           </div>
 
           <!-- Requests in this collection -->
           <div class="pl-3 space-y-0.5">
-            {#each colRequests as req (req.id)}
+            {#each colRequests as req, reqIdx (req.id)}
               {@const isCurrent = workspaceStore.currentWorkspace.activeTabId === req.id}
+              {@const isReqOver = dragOverReqId === req.id}
+              {@const isReqDragged = draggedReqId === req.id}
               <div
                 role="button"
                 tabindex="0"
+                draggable="true"
+                ondragstart={(e) => handleReqDragStart(e, req.id)}
+                ondragover={(e) => handleReqDragOver(e, req.id)}
+                ondrop={(e) => handleReqDrop(e, req, col.id)}
+                ondragend={handleDragEnd}
                 onclick={() => {
                   workspaceStore.openTab(req.id);
                   onSelectView('studio');
@@ -357,6 +523,18 @@
                     renameReq = { req, newName: req.name };
                   } else if (e.key === 'Delete') {
                     deleteReq = req;
+                  } else if (e.altKey && e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (reqIdx > 0) {
+                      workspaceStore.reorderRequests(col.id, reqIdx, reqIdx - 1);
+                      showToast('Moved request up', '⬆️');
+                    }
+                  } else if (e.altKey && e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (reqIdx < colRequests.length - 1) {
+                      workspaceStore.reorderRequests(col.id, reqIdx, reqIdx + 1);
+                      showToast('Moved request down', '⬇️');
+                    }
                   }
                 }}
                 oncontextmenu={(e) => {
@@ -369,12 +547,16 @@
                     col
                   };
                 }}
-                class="px-2 py-1.5 rounded flex items-center justify-between group cursor-pointer transition-colors text-xs
+                class="px-2 py-1.5 rounded flex items-center justify-between group cursor-grab active:cursor-grabbing transition-all text-xs select-none
+                  {isReqDragged ? 'opacity-30 border border-dashed border-sky-400 bg-sky-950/20' : ''}
+                  {isReqOver && dropPosition === 'before' ? 'border-t-2 border-sky-400' : ''}
+                  {isReqOver && dropPosition === 'after' ? 'border-b-2 border-sky-400' : ''}
                   {isCurrent
                     ? 'bg-sky-950/60 text-sky-300 font-medium border border-sky-800/40'
                     : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'}"
               >
-                <div class="flex items-center gap-2 truncate">
+                <div class="flex items-center gap-1.5 truncate">
+                  <span class="text-slate-600 opacity-20 group-hover:opacity-80 text-[10px]">⋮⋮</span>
                   <span class="text-[9px] font-bold font-mono uppercase {getMethodColor(req.method)}">
                     {req.method}
                   </span>

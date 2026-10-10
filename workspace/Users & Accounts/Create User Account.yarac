@@ -1,0 +1,42 @@
+version = "1.0"
+name = "Create User Account"
+method = "POST"
+url = "{{base_url}}/api/v1/users"
+
+[settings]
+inherit_auth = false
+verify_ssl = true
+follow_redirects = true
+timeout_ms = 15000
+
+[headers]
+Content-Type = "application/json"
+Accept = "application/json"
+X-Request-Id = "{{$uuid}}"
+
+[auth]
+type = "bearer"
+token = "{{api_bearer_token}}"
+
+[flow]
+once_per_run = false
+retry_until = "response.status == 200 && response.body.status == 'ready'"
+retry_interval_ms = 1000
+max_retries = 5
+delay_ms = 150
+jitter_min_ms = 50
+jitter_max_ms = 150
+
+[body.json]
+```json
+{
+  "email": "developer_{{$randomInt}}@yarac.dev",
+  "role": "admin",
+  "tier": "enterprise",
+  "metrics": {
+    "logins": 42,
+    "projects": 12,
+    "storage_gb": 85
+  }
+}
+```

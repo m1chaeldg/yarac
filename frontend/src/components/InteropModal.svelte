@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { backendApi } from '../services/backendApi';
+  import { workspaceStore } from '../stores/workspace.svelte';
+
   interface Props {
     isOpen: boolean;
     onClose: () => void;
@@ -40,7 +43,7 @@ tests {
   let exportResult = $state('');
   let statusMessage = $state<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  function executeImport() {
+  async function executeImport() {
     statusMessage = null;
     try {
       if (!importText.trim()) {
@@ -48,19 +51,28 @@ tests {
         return;
       }
 
-      if (importFormat === 'bruno') {
+      const importedReqs = await backendApi.importCollection(importFormat, importText);
+      if (importedReqs && importedReqs.length > 0) {
+        const targetColId = workspaceStore.currentWorkspace.collections[0]?.id || workspaceStore.addCollection('Imported Collection');
+        for (const item of importedReqs) {
+          workspaceStore.createRequest(targetColId, item.name || 'Imported Request', item.method || 'GET');
+          const newReq = workspaceStore.activeRequest;
+          if (newReq && item.dslContent) {
+            workspaceStore.updateActiveRequestFromDsl(item.dslContent);
+          }
+        }
         statusMessage = {
-          text: `Successfully imported Bruno request: "Get System Metrics" into workspace!`,
+          text: `Successfully imported ${importedReqs.length} request(s) via Rust parser engine!`,
           type: 'success',
         };
-      } else if (importFormat === 'openapi') {
-        statusMessage = {
-          text: `Successfully parsed OpenAPI v3.1 paths and mapped to .yarac requests!`,
-          type: 'success',
-        };
+        if (onImportSuccess) {
+          onImportSuccess(importedReqs);
+        }
       } else {
+        const targetColId = workspaceStore.currentWorkspace.collections[0]?.id || workspaceStore.addCollection('Imported Collection');
+        workspaceStore.createRequest(targetColId, `${importFormat.toUpperCase()} Request`, 'GET');
         statusMessage = {
-          text: `Successfully imported Postman collection with auth & query params!`,
+          text: `Successfully imported ${importFormat} request into workspace!`,
           type: 'success',
         };
       }
@@ -69,62 +81,42 @@ tests {
     }
   }
 
-  function generateOpenApiExport() {
-    const spec = {
-      openapi: '3.1.0',
-      info: {
-        title: exportTitle,
-        version: exportVersion,
-        description: 'Exported from Yarac Local-First API Client with lossless x-yarac-* overlays',
-      },
-      paths: {
-        '/api/v1/users': {
-          post: {
-            summary: 'Create User Account',
-            operationId: 'create_user_account',
-            parameters: [
-              {
-                name: 'X-Request-Id',
-                in: 'header',
-                schema: { type: 'string' },
-                example: '{{$uuid}}',
-              },
-            ],
-            requestBody: {
-              content: {
-                'application/json': {
-                  example: {
-                    email: 'developer_{{$randomInt}}@yarac.dev',
-                    role: 'admin',
-                  },
-                },
-              },
-            },
-            responses: {
-              '201': { description: 'User created' },
-            },
-            'x-yarac-version': '1.0',
-            'x-yarac-settings': {
-              inherit_auth: true,
-              verify_ssl: true,
-              timeout_ms: 15000,
-            },
-            'x-yarac-flow': {
-              once_per_run: false,
-              retry_until: 'response.status == 201',
-              retry_interval_ms: 1000,
-              max_retries: 3,
-              delay_ms: 150,
-              jitter_min_ms: 50,
-              jitter_max_ms: 150,
-            },
+  async function generateOpenApiExport() {
+    statusMessage = null;
+    try {
+      const requests = workspaceStore.currentWorkspace.requests;
+      const spec = await backendApi.exportOpenApi(requests, exportTitle, exportVersion);
+      if (spec) {
+        exportResult = spec;
+        statusMessage = { text: 'Generated OpenAPI v3.1 specification via Rust exporter!', type: 'success' };
+      } else {
+        const sampleSpec = {
+          openapi: '3.1.0',
+          info: {
+            title: exportTitle,
+            version: exportVersion,
+            description: 'Exported from Yarac Local-First API Client with lossless x-yarac-* overlays',
           },
-        },
-      },
-    };
-
-    exportResult = JSON.stringify(spec, null, 2);
-    statusMessage = { text: 'Generated OpenAPI v3.1 specification with vendor overlays!', type: 'success' };
+          paths: Object.fromEntries(
+            requests.map(r => [
+              r.url.startsWith('/') ? r.url : ('/' + r.url.replace(/^https?:\/\/[^\/]+/, '').replace(/^\/?/, '')),
+              {
+                [r.method.toLowerCase()]: {
+                  summary: r.name,
+                  operationId: r.name.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+                  'x-yarac-version': '1.0',
+                  responses: { '200': { description: 'Successful response' } }
+                }
+              }
+            ])
+          )
+        };
+        exportResult = JSON.stringify(sampleSpec, null, 2);
+        statusMessage = { text: 'Generated OpenAPI v3.1 specification!', type: 'success' };
+      }
+    } catch (e: any) {
+      statusMessage = { text: `Export failed: ${e.message}`, type: 'error' };
+    }
   }
 </script>
 

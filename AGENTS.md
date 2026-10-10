@@ -18,6 +18,9 @@ All AI assistants and autonomous coding agents contributing to this codebase mus
   - Use parser-combinators (`nom` or `pest`) producing a Concrete Syntax Tree.
   - Preserve original line-ending formats (CRLF vs. LF) across parse/serialize cycles.
   - Every parser pull request must pass the round-trip invariant: `assert_eq!(serialize(parse(input)), input)`.
+* **Full-Stack Parity Invariant:**
+  - When introducing or modifying features, always assess and deliver both frontend and backend components together.
+  - Never leave frontend features backed by mock timeouts or synthetic state when a Rust domain crate or filesystem contract is required.
 * **Security & Tainted Scrubbing:**
   - Respect `security.scrub_tainted_secrets` (default: `true`).
   - Apply automated substring scrubbing only to secrets with length >= 6.

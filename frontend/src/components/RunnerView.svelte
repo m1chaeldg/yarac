@@ -1,14 +1,15 @@
 <script lang="ts">
-  let collectionName = $state('User Management Suite');
-  let iterations = $state(10);
-  let concurrency = $state(2);
+  import { workspaceStore, type YaracRequest } from '../stores/workspace.svelte';
+  import { backendApi } from '../services/backendApi';
+
+  let selectedCollectionId = $state<string>('all');
+  let iterations = $state(5);
+  let concurrency = $state(1);
   let delayMs = $state(40);
   let dataInput = $state(`[
   { "userId": "101", "name": "Alice Developer", "role": "admin" },
   { "userId": "102", "name": "Bob Architect", "role": "engineer" },
-  { "userId": "103", "name": "Charlie Tester", "role": "qa" },
-  { "userId": "104", "name": "David Manager", "role": "lead" },
-  { "userId": "105", "name": "Eve Security", "role": "auditor" }
+  { "userId": "103", "name": "Charlie Tester", "role": "qa" }
 ]`);
 
   let isRunning = $state(false);
@@ -101,41 +102,89 @@
       }));
     }
 
-    const effectiveIterations = Math.max(iterations, parsedData.length);
+    const effectiveIterations = Math.max(iterations, 1);
+
+    // Collect base active environment variables
+    const activeEnv = workspaceStore.currentWorkspace.environments.find(
+      (e) => e.id === workspaceStore.currentWorkspace.activeEnvironmentId
+    );
+    const baseEnvVars: Record<string, string> = {};
+    if (activeEnv) {
+      for (const v of activeEnv.variables) {
+        if (v.enabled && v.key.trim()) {
+          baseEnvVars[v.key.trim()] = v.value;
+        }
+      }
+    }
+
+    // Determine target requests
+    const candidateRequests = selectedCollectionId === 'all'
+      ? workspaceStore.currentWorkspace.requests
+      : workspaceStore.currentWorkspace.requests.filter((r) => r.collectionId === selectedCollectionId);
+
+    const requestsToRun: YaracRequest[] = candidateRequests.length > 0 ? candidateRequests : [
+      {
+        id: 'req_runner_default',
+        collectionId: 'col_default',
+        name: 'Workspace Ping',
+        method: 'GET',
+        url: 'http://127.0.0.1:9475/health',
+        params: [],
+        headers: [],
+        auth: { type: 'none' },
+        body: { type: 'none', rawContent: '', formData: [] },
+        flow: { once_per_run: false, retry_until: '', retry_interval_ms: 0, max_retries: 0, delay_ms: 0, jitter_min_ms: 0, jitter_max_ms: 0 },
+        dslContent: 'version = "1.0"\nname = "Workspace Ping"\nmethod = "GET"\nurl = "http://127.0.0.1:9475/health"\n',
+        isDirty: false
+      }
+    ];
 
     for (let i = 0; i < effectiveIterations; i++) {
       if (!isRunning) break;
       currentIteration = i + 1;
 
-      // Realistic latency simulation with jitter
-      const baseLatency = 18 + Math.floor(Math.random() * 35);
-      const concurrencyFactor = concurrency > 1 ? Math.floor(Math.random() * 15) : 0;
-      const duration = baseLatency + concurrencyFactor;
+      const record = parsedData.length > 0 ? parsedData[i % parsedData.length] : {};
+      const mergedEnv = { ...baseEnvVars, ...record };
 
-      await new Promise((r) => setTimeout(r, Math.max(delayMs, 20)));
+      for (const req of requestsToRun) {
+        if (!isRunning) break;
 
-      latencies = [...latencies, duration];
-      const isPass = Math.random() > 0.08;
+        const rep = await backendApi.executeRequest(req, mergedEnv);
+        const duration = Math.max(1, rep.duration_ms);
+        latencies = [...latencies, duration];
 
-      const record = parsedData[i % parsedData.length];
-      const name = record?.name || `user_${i + 1}`;
+        const isPass = !rep.error && rep.status_code >= 200 && rep.status_code < 400;
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
 
-      const now = new Date();
-      const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+        let assertionText = 'No assertions';
+        if (rep.assertions && rep.assertions.length > 0) {
+          const passCount = rep.assertions.filter((a) => a.passed).length;
+          assertionText = `${passCount}/${rep.assertions.length} Passed ${passCount === rep.assertions.length ? '✓' : '✗'}`;
+        } else if (isPass) {
+          assertionText = `Status ${rep.status_code} ✓`;
+        } else {
+          assertionText = rep.error || `Status ${rep.status_code} ✗`;
+        }
 
-      runLogs = [
-        {
-          iteration: i + 1,
-          requestName: `POST /users (${name})`,
-          method: 'POST',
-          status: isPass ? 201 : 503,
-          durationMs: duration,
-          assertions: isPass ? '2/2 Passed ✓' : 'Assertion failed (Status != 201) ✗',
-          passed: isPass,
-          timestamp: timeStr,
-        },
-        ...runLogs,
-      ];
+        runLogs = [
+          {
+            iteration: i + 1,
+            requestName: `${req.name} (${record?.name || req.method})`,
+            method: req.method,
+            status: rep.status_code,
+            durationMs: duration,
+            assertions: assertionText,
+            passed: isPass,
+            timestamp: timeStr,
+          },
+          ...runLogs,
+        ];
+
+        if (delayMs > 0) {
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+      }
     }
 
     isRunning = false;
@@ -155,12 +204,13 @@
         <label for="runner-col-select" class="block text-[11px] text-slate-400 mb-1">Target Collection</label>
         <select
           id="runner-col-select"
-          bind:value={collectionName}
+          bind:value={selectedCollectionId}
           class="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500"
         >
-          <option>User Management Suite</option>
-          <option>Authentication & OAuth2</option>
-          <option>Checkout & Payment Flow</option>
+          <option value="all">All Collections ({workspaceStore.currentWorkspace.requests.length} requests)</option>
+          {#each workspaceStore.currentWorkspace.collections as col}
+            <option value={col.id}>{col.name} ({workspaceStore.currentWorkspace.requests.filter(r => r.collectionId === col.id).length} reqs)</option>
+          {/each}
         </select>
       </div>
 

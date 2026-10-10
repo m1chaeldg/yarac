@@ -230,3 +230,25 @@ impl ExecutionReport {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CollectionMeta {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub request_files: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceManifest {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub collections: Vec<CollectionMeta>,
+    #[serde(default)]
+    pub active_environment_id: Option<String>,
+    #[serde(default)]
+    pub open_tabs: Vec<String>,
+    #[serde(default)]
+    pub active_tab: Option<String>,
+}

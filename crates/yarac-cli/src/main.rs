@@ -1,10 +1,14 @@
 mod runner;
+mod server;
 
 use clap::{Parser, Subcommand};
 use runner::{parse_duration_str, run_suite, RunnerOptions};
+use server::YaracLocalServer;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::Arc;
 use yarac_core::models::YaracRequest;
+use yarac_core::watcher::WorkspaceWatcher;
 use yarac_importer::{
     export_requests_to_workspace, BrunoImporter, OpenApiExporter, OpenApiImporter, PostmanImporter,
 };
@@ -90,6 +94,21 @@ enum Commands {
         /// Output directory for generated .yarac files
         #[arg(short, long, default_value = "./collections")]
         output: PathBuf,
+    },
+    /// Starts the local full-stack Yarac daemon and file watcher on 127.0.0.1
+    Serve {
+        /// Port to bind (default: 9475)
+        #[arg(short, long, default_value_t = 9475)]
+        port: u16,
+        /// Path to workspace directory
+        #[arg(short, long, default_value = "./workspace")]
+        workspace: PathBuf,
+    },
+    /// Watches a workspace directory for external changes
+    Watch {
+        /// Path to workspace directory
+        #[arg(default_value = "./workspace")]
+        path: PathBuf,
     },
 }
 
@@ -303,6 +322,29 @@ async fn main() -> ExitCode {
                 }
                 Err(e) => {
                     eprintln!("Failed to write .yarac files: {e}");
+                    ExitCode::from(2)
+                }
+            }
+        }
+        Commands::Serve { port, workspace } => {
+            let server = Arc::new(YaracLocalServer::new(workspace));
+            if let Err(e) = server.run(port).await {
+                eprintln!("Server error: {e}");
+                ExitCode::from(1)
+            } else {
+                ExitCode::from(0)
+            }
+        }
+        Commands::Watch { path } => {
+            println!("👀 Watching workspace at {} for changes...", path.display());
+            match WorkspaceWatcher::new(&path) {
+                Ok(watcher) => loop {
+                    if let Some(event) = watcher.recv_timeout(std::time::Duration::from_millis(500)) {
+                        println!("⚡ File changed: [{:?}] {}", event.kind, event.path.display());
+                    }
+                },
+                Err(e) => {
+                    eprintln!("Failed to start watcher: {e}");
                     ExitCode::from(2)
                 }
             }

@@ -1,0 +1,20 @@
+{
+  "id": "ws_default",
+  "name": "Core Services API",
+  "collections": [
+    {
+      "id": "col_users",
+      "name": "Users & Accounts"
+    },
+    {
+      "id": "col_billing",
+      "name": "Billing & Subscriptions"
+    }
+  ],
+  "active_environment_id": "env_prod",
+  "open_tabs": [
+    "req_create_user",
+    "req_get_user"
+  ],
+  "active_tab": "req_create_user"
+}

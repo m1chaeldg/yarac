@@ -1,0 +1,27 @@
+version = "1.0"
+name = "Fetch User Profile"
+method = "GET"
+url = "{{base_url}}/api/v1/users/usr_99184820"
+
+[settings]
+inherit_auth = false
+verify_ssl = true
+follow_redirects = true
+timeout_ms = 15000
+
+[headers]
+Accept = "application/json"
+Authorization = "Bearer {{api_bearer_token}}"
+
+[auth]
+type = "bearer"
+token = "{{api_bearer_token}}"
+
+[flow]
+once_per_run = false
+retry_until = ""
+retry_interval_ms = 500
+max_retries = 3
+delay_ms = 0
+jitter_min_ms = 0
+jitter_max_ms = 0
