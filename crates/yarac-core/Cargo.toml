@@ -13,3 +13,5 @@ uuid.workspace = true
 chrono.workspace = true
 keyring.workspace = true
 tracing.workspace = true
+rand.workspace = true
+

@@ -206,11 +206,27 @@ impl CstDocument {
                                             flow.max_retries = i as u32;
                                         }
                                     }
+                                    "delay_ms" => {
+                                        if let Some(i) = kv.value.as_i64() {
+                                            flow.delay_ms = Some(i as u64);
+                                        }
+                                    }
+                                    "jitter_min_ms" => {
+                                        if let Some(i) = kv.value.as_i64() {
+                                            flow.jitter_min_ms = Some(i as u64);
+                                        }
+                                    }
+                                    "jitter_max_ms" => {
+                                        if let Some(i) = kv.value.as_i64() {
+                                            flow.jitter_max_ms = Some(i as u64);
+                                        }
+                                    }
                                     _ => {}
                                 }
                             }
                         }
                         req.flow = Some(flow);
+
                     }
                     "body.json" => {
                         for sub in &table.items {

@@ -31,17 +31,18 @@
 - [x] Implement `yarac-cli` headless runner with JUnit XML, TAP, and deterministic exit codes (`0`, `1`, `2`, `3`).
 
 ### Phase 2: Performance Profiling, Flow Controls & Interoperability
-- [ ] Build Declarative Flow Controllers in the Rust runner:
-  - [ ] Support `flow.once_per_run` execution gating.
-  - [ ] Support `flow.retry_until` with configurable intervals and max retry caps.
-  - [ ] Implement request pacing timers with randomized jitter ranges.
-- [ ] Implement Runner Concurrency & Statistical Profiling:
-  - [ ] Add Tokio-based worker pool to support `--concurrency`, `--ramp-up`, and `--duration` flags.
-  - [ ] Integrate `hdrhistogram` for in-memory tracking of p50, p90, p95, p99, and RPS metrics.
-  - [ ] Build terminal and UI summary charts displaying latency percentiles and error rates.
-- [ ] Build OpenAPI v3.1 Exporter translating `.yarac` files to paths with `x-yarac-*` overlays.
-- [ ] Build Bruno `.bru` and OpenAPI v3/v3.1 Importers.
-- [ ] Implement UI-driven sequential collection runner with CSV/JSON iterations.
+- [x] Build Declarative Flow Controllers in the Rust runner:
+  - [x] Support `flow.once_per_run` execution gating.
+  - [x] Support `flow.retry_until` with configurable intervals and max retry caps.
+  - [x] Implement request pacing timers with randomized jitter ranges.
+- [x] Implement Runner Concurrency & Statistical Profiling:
+  - [x] Add Tokio-based worker pool to support `--concurrency`, `--ramp-up`, and `--duration` flags.
+  - [x] Integrate `hdrhistogram` for in-memory tracking of p50, p90, p95, p99, and RPS metrics.
+  - [x] Build terminal and UI summary charts displaying latency percentiles and error rates.
+- [x] Build OpenAPI v3.1 Exporter translating `.yarac` files to paths with `x-yarac-*` overlays.
+- [x] Build Bruno `.bru` and OpenAPI v3/v3.1 Importers.
+- [x] Implement UI-driven sequential collection runner with CSV/JSON iterations.
+
 
 ### Phase 3: Advanced Integrations (Post-MVP)
 - [ ] AWS Secrets Manager and HashiCorp Vault live resolution engines.

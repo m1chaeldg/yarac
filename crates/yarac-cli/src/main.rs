@@ -1,13 +1,14 @@
+mod runner;
+
 use clap::{Parser, Subcommand};
-use std::collections::HashMap;
+use runner::{parse_duration_str, run_suite, RunnerOptions};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use yarac_core::models::*;
-use yarac_core::scope::VariableScopeStack;
-use yarac_core::scrubber::{ScrubConfig, SecretRegistry};
-use yarac_net::YaracHttpClient;
+use yarac_core::models::YaracRequest;
+use yarac_importer::{
+    export_requests_to_workspace, BrunoImporter, OpenApiExporter, OpenApiImporter, PostmanImporter,
+};
 use yarac_parser::parse;
-use yarac_scripting::ScriptRunner;
 
 #[derive(Parser)]
 #[command(
@@ -33,6 +34,39 @@ enum Commands {
         /// Output format (cli, junit, tap)
         #[arg(short, long, default_value = "cli")]
         reporter: String,
+        /// Number of concurrent workers (micro-load testing)
+        #[arg(short, long, default_value_t = 1)]
+        concurrency: usize,
+        /// Worker ramp-up time (e.g. "10s", "500ms")
+        #[arg(long)]
+        ramp_up: Option<String>,
+        /// Total duration for load run (e.g. "30s", "1m")
+        #[arg(long)]
+        duration: Option<String>,
+
+        /// Number of iterations through the collection
+        #[arg(short, long, default_value_t = 1)]
+        iterations: usize,
+        /// Path to iteration data file (.csv or .json)
+        #[arg(short, long)]
+        data: Option<PathBuf>,
+    },
+    /// Exports .yarac requests to OpenAPI v3.1 specification
+    Export {
+        /// Format to export (openapi)
+        #[arg(short, long, default_value = "openapi")]
+        format: String,
+        /// Path to .yarac file or collection directory
+        path: PathBuf,
+        /// Output file for OpenAPI specification
+        #[arg(short, long, default_value = "openapi.json")]
+        output: PathBuf,
+        /// API Title for specification
+        #[arg(long, default_value = "Yarac Exported API")]
+        title: String,
+        /// API Version
+        #[arg(long, default_value = "1.0.0")]
+        version: String,
     },
     /// Runs the Model Context Protocol (MCP) server
     Mcp {
@@ -46,10 +80,13 @@ enum Commands {
         #[arg(long, default_value = "yarac-local-secret-token")]
         token: String,
     },
-    /// Imports external collections (Postman v2.1) into .yarac format
+    /// Imports external collections (Postman v2.1, Bruno .bru, OpenAPI v3/v3.1) into .yarac format
     Import {
-        /// Path to Postman collection JSON
+        /// Path to collection or spec file
         file: PathBuf,
+        /// Format to import: postman, bruno, openapi
+        #[arg(short, long, default_value = "postman")]
+        format: String,
         /// Output directory for generated .yarac files
         #[arg(short, long, default_value = "./collections")]
         output: PathBuf,
@@ -65,9 +102,107 @@ async fn main() -> ExitCode {
             path,
             env,
             reporter,
+            concurrency,
+            ramp_up,
+            duration,
+            iterations,
+            data,
         } => {
-            let code = run_suite(&path, env.as_deref(), &reporter).await;
-            ExitCode::from(code as u8)
+            let parsed_ramp_up = match ramp_up {
+                Some(ref s) => match parse_duration_str(s) {
+                    Ok(d) => Some(d),
+                    Err(e) => {
+                        eprintln!("Error in --ramp-up: {e}");
+                        return ExitCode::from(2);
+                    }
+                },
+                None => None,
+            };
+
+            let parsed_duration = match duration {
+                Some(ref s) => match parse_duration_str(s) {
+                    Ok(d) => Some(d),
+                    Err(e) => {
+                        eprintln!("Error in --duration: {e}");
+                        return ExitCode::from(2);
+                    }
+                },
+                None => None,
+            };
+
+            let options = RunnerOptions {
+                env_path: env,
+                reporter,
+                concurrency,
+                ramp_up: parsed_ramp_up,
+                duration: parsed_duration,
+                iterations,
+                data_path: data,
+            };
+
+            let summary = run_suite(&path, options).await;
+            ExitCode::from(summary.exit_code as u8)
+        }
+        Commands::Export {
+            format,
+            path,
+            output,
+            title,
+            version,
+        } => {
+            if format.to_lowercase() != "openapi" {
+                eprintln!("Unsupported export format '{format}'. Only 'openapi' is supported.");
+                return ExitCode::from(2);
+            }
+
+            let mut files = Vec::new();
+            collect_yarac_files(&path, &mut files);
+            if files.is_empty() {
+                eprintln!("No .yarac files found at: {}", path.display());
+                return ExitCode::from(2);
+            }
+            files.sort();
+
+            let mut requests = Vec::new();
+            for f in &files {
+                let content = match std::fs::read_to_string(f) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("Failed to read '{}': {e}", f.display());
+                        return ExitCode::from(2);
+                    }
+                };
+                let cst = match parse(&content) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("Syntax error in '{}': {e}", f.display());
+                        return ExitCode::from(2);
+                    }
+                };
+                let req = match cst.to_request() {
+                    Ok(r) => r,
+                    Err(e) => {
+                        eprintln!("Config error in '{}': {e}", f.display());
+                        return ExitCode::from(2);
+                    }
+                };
+                requests.push(req);
+            }
+
+            match OpenApiExporter::export_to_file(&requests, &title, &version, &output) {
+                Ok(_) => {
+                    println!(
+                        "Successfully exported {} requests to OpenAPI v3.1 spec at: {}",
+                        requests.len(),
+                        output.display()
+                    );
+                    ExitCode::from(0)
+                }
+                Err(e) => {
+                    eprintln!("Failed to export OpenAPI spec: {e}");
+                    ExitCode::from(2)
+                }
+            }
         }
         Commands::Mcp {
             transport,
@@ -89,26 +224,81 @@ async fn main() -> ExitCode {
                 ExitCode::from(0)
             }
         }
-        Commands::Import { file, output } => {
-            let json_str = match std::fs::read_to_string(&file) {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("Error reading file '{}': {e}", file.display());
+        Commands::Import { file, format, output } => {
+            let requests: Vec<YaracRequest> = match format.to_lowercase().as_str() {
+                "postman" => {
+                    let json_str = match std::fs::read_to_string(&file) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Error reading Postman file '{}': {e}", file.display());
+                            return ExitCode::from(2);
+                        }
+                    };
+                    match PostmanImporter::import_collection(&json_str) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            eprintln!("Failed to parse Postman collection: {e}");
+                            return ExitCode::from(2);
+                        }
+                    }
+                }
+                "bruno" => {
+                    if file.is_dir() {
+                        match BrunoImporter::import_directory(&file) {
+                            Ok(r) => r,
+                            Err(e) => {
+                                eprintln!("Failed to import Bruno directory: {e}");
+                                return ExitCode::from(2);
+                            }
+                        }
+                    } else {
+                        let content = match std::fs::read_to_string(&file) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                eprintln!("Error reading Bruno file '{}': {e}", file.display());
+                                return ExitCode::from(2);
+                            }
+                        };
+                        match BrunoImporter::import_bru(&content) {
+                            Ok(r) => vec![r],
+                            Err(e) => {
+                                eprintln!("Failed to parse Bruno file: {e}");
+                                return ExitCode::from(2);
+                            }
+                        }
+                    }
+                }
+                "openapi" => {
+                    let spec_str = match std::fs::read_to_string(&file) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("Error reading OpenAPI file '{}': {e}", file.display());
+                            return ExitCode::from(2);
+                        }
+                    };
+                    match OpenApiImporter::import_spec(&spec_str) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            eprintln!("Failed to parse OpenAPI spec: {e}");
+                            return ExitCode::from(2);
+                        }
+                    }
+                }
+                other => {
+                    eprintln!(
+                        "Unsupported import format '{other}'. Choose from: 'postman', 'bruno', 'openapi'."
+                    );
                     return ExitCode::from(2);
                 }
             };
 
-            let reqs = match yarac_importer::PostmanImporter::import_collection(&json_str) {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("Failed to parse Postman collection: {e}");
-                    return ExitCode::from(2);
-                }
-            };
-
-            match yarac_importer::PostmanImporter::export_to_workspace(&reqs, &output) {
+            match export_requests_to_workspace(&requests, &output) {
                 Ok(files) => {
-                    println!("Successfully imported {} requests into {}", files.len(), output.display());
+                    println!(
+                        "Successfully imported {} requests into {}",
+                        files.len(),
+                        output.display()
+                    );
                     ExitCode::from(0)
                 }
                 Err(e) => {
@@ -120,250 +310,19 @@ async fn main() -> ExitCode {
     }
 }
 
-async fn run_suite(target_path: &Path, env_path: Option<&Path>, reporter: &str) -> i32 {
-    let mut files_to_run = Vec::new();
-    if target_path.is_dir() {
-        collect_yarac_files(target_path, &mut files_to_run);
-        files_to_run.sort();
-    } else if target_path.exists() {
-        files_to_run.push(target_path.to_path_buf());
-    } else {
-        eprintln!("Error: Target path does not exist: {}", target_path.display());
-        return 2;
+fn collect_yarac_files(target: &Path, out: &mut Vec<PathBuf>) {
+    if target.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(target) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    collect_yarac_files(&path, out);
+                } else if path.extension().and_then(|s| s.to_str()) == Some("yarac") {
+                    out.push(path);
+                }
+            }
+        }
+    } else if target.exists() {
+        out.push(target.to_path_buf());
     }
-
-    if files_to_run.is_empty() {
-        eprintln!("No .yarac files found to execute at: {}", target_path.display());
-        return 2;
-    }
-
-    // Load Environment
-    let mut scope = VariableScopeStack::new();
-    if let Some(ep) = env_path {
-        if ep.exists() {
-            if let Ok(content) = std::fs::read_to_string(ep) {
-                for line in content.lines() {
-                    let trimmed = line.trim();
-                    if trimmed.is_empty() || trimmed.starts_with('#') {
-                        continue;
-                    }
-                    if let Some((k, v)) = trimmed.split_once('=') {
-                        let clean_k = k.trim().to_string();
-                        let clean_v = v.trim().trim_matches('"').trim_matches('\'').to_string();
-                        scope.environment.insert(clean_k, VariableValue::new(clean_v));
-                    }
-                }
-            }
-        }
-    }
-
-    let mut reports = Vec::new();
-    let mut highest_exit_code = 0;
-
-    let workspace_root = if target_path.is_dir() {
-        target_path
-    } else {
-        target_path.parent().unwrap_or(Path::new("."))
-    };
-
-    let script_runner = ScriptRunner::default();
-    let scrub_config = ScrubConfig::default();
-
-    for file in &files_to_run {
-        let content = match std::fs::read_to_string(file) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("Error reading file '{}': {e}", file.display());
-                return 2;
-            }
-        };
-
-        let cst = match parse(&content) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("Syntax error in '{}': {e}", file.display());
-                return 2;
-            }
-        };
-
-        let mut req = match cst.to_request() {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!("Configuration error in '{}': {e}", file.display());
-                return 2;
-            }
-        };
-
-        let mut secrets = HashMap::new();
-        for (k, var) in &scope.environment {
-            if var.is_secret {
-                secrets.insert(k.clone(), var.value.clone());
-            }
-        }
-
-        // Run pre-request script
-        if let Some(pre_script) = req.scripts.pre_request.clone() {
-            if let Err(e) = script_runner.run_pre_request(&pre_script, &mut req, &secrets).await {
-                eprintln!("Pre-request script error: {e}");
-            }
-        }
-
-        let interpolated_url = scope.interpolate(&req.url);
-
-        let client = match YaracHttpClient::new(
-            req.settings.verify_ssl,
-            req.settings.follow_redirects,
-            req.settings.timeout_ms,
-            None,
-        ) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("Client config error: {e}");
-                return 2;
-            }
-        };
-
-        match client.execute(&req, workspace_root, &interpolated_url).await {
-            Ok(mut report) => {
-                // Run post-response assertions script
-                if let Some(post_script) = &req.scripts.post_response {
-                    if let Ok(mutated_env) = script_runner
-                        .run_post_response(post_script, &mut report, &secrets)
-                        .await
-                    {
-                        for (k, v) in mutated_env {
-                            scope.environment.insert(k, VariableValue::new(v));
-                        }
-                    }
-                }
-
-                // Scrub response body
-                let mut registry = SecretRegistry::new();
-                for sec in secrets.values() {
-                    registry.register(sec);
-                }
-                report.response_body = registry.scrub(&report.response_body, &scrub_config);
-
-                let code = report.exit_code();
-                if code > highest_exit_code {
-                    highest_exit_code = code;
-                }
-                reports.push(report);
-            }
-            Err(e) => {
-                eprintln!("Network error executing '{}': {e}", file.display());
-                highest_exit_code = 3;
-            }
-        }
-    }
-
-    render_reports(&reports, reporter);
-
-    highest_exit_code
-}
-
-fn collect_yarac_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                collect_yarac_files(&path, out);
-            } else if path.extension().and_then(|s| s.to_str()) == Some("yarac") {
-                out.push(path);
-            }
-        }
-    }
-}
-
-fn render_reports(reports: &[ExecutionReport], reporter: &str) {
-    match reporter.to_lowercase().as_str() {
-        "junit" => {
-            println!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-            println!("<testsuites tests=\"{}\" name=\"Yarac Suite\">", reports.len());
-            for rep in reports {
-                let failures = rep.assertions.iter().filter(|a| !a.passed).count();
-                println!(
-                    "  <testsuite name=\"{}\" tests=\"{}\" failures=\"{}\" time=\"{:.3}\">",
-                    xml_escape(&rep.request_name),
-                    rep.assertions.len(),
-                    failures,
-                    rep.duration_ms as f64 / 1000.0
-                );
-                for a in &rep.assertions {
-                    if a.passed {
-                        println!("    <testcase name=\"{}\"/>", xml_escape(&a.name));
-                    } else {
-                        println!(
-                            "    <testcase name=\"{}\"><failure message=\"{}\"/></testcase>",
-                            xml_escape(&a.name),
-                            xml_escape(a.error_message.as_deref().unwrap_or("Assertion failed"))
-                        );
-                    }
-                }
-                println!("  </testsuite>");
-            }
-            println!("</testsuites>");
-        }
-        "tap" => {
-            let total_assertions: usize = reports.iter().map(|r| r.assertions.len()).sum();
-            println!("TAP version 13");
-            println!("1..{}", total_assertions.max(1));
-            let mut count = 1;
-            for rep in reports {
-                for a in &rep.assertions {
-                    if a.passed {
-                        println!("ok {} - {} -> {}", count, rep.request_name, a.name);
-                    } else {
-                        println!(
-                            "not ok {} - {} -> {} # {}",
-                            count,
-                            rep.request_name,
-                            a.name,
-                            a.error_message.as_deref().unwrap_or("Failed")
-                        );
-                    }
-                    count += 1;
-                }
-            }
-        }
-        _ => {
-            println!("\n========================================================");
-            println!("                YARAC EXECUTION SUMMARY                 ");
-            println!("========================================================");
-            for rep in reports {
-                let passed = rep.assertions.iter().filter(|a| a.passed).count();
-                let status_indicator = if rep.all_passed() { "PASS" } else { "FAIL" };
-                println!(
-                    "[{}] {} {} ({}ms, Status: {}, Assertions: {}/{})",
-                    status_indicator,
-                    rep.method,
-                    rep.request_name,
-                    rep.duration_ms,
-                    rep.status_code,
-                    passed,
-                    rep.assertions.len()
-                );
-                for a in &rep.assertions {
-                    if a.passed {
-                        println!("  ✓ {}", a.name);
-                    } else {
-                        println!(
-                            "  ✗ {} - {}",
-                            a.name,
-                            a.error_message.as_deref().unwrap_or("Assertion failed")
-                        );
-                    }
-                }
-            }
-            println!("========================================================\n");
-        }
-    }
-}
-
-fn xml_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&apos;")
 }
