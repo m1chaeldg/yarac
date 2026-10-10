@@ -99,14 +99,14 @@ c:/repo/yarac/
 
 | Crate | Description |
 |---|---|
-| [`yarac-core`](file:///c:/repo/yarac/crates/yarac-core) | Core data structures, path anchoring, secret registry, and scope resolution stack. |
-| [`yarac-parser`](file:///c:/repo/yarac/crates/yarac-parser) | Lossless CST parser and serializer with CRLF/LF preservation. |
-| [`yarac-net`](file:///c:/repo/yarac/crates/yarac-net) | High-throughput asynchronous HTTP execution engine. |
-| [`yarac-scripting`](file:///c:/repo/yarac/crates/yarac-scripting) | Sandboxed `deno_core` V8 runtime with ephemeral contexts and strict timeouts. |
-| [`yarac-git`](file:///c:/repo/yarac/crates/yarac-git) | Hybrid Git status, diff, branch, stage, and commit engine. |
-| [`yarac-importer`](file:///c:/repo/yarac/crates/yarac-importer) | Clean collection importer from Postman v2.1. |
-| [`yarac-mcp`](file:///c:/repo/yarac/crates/yarac-mcp) | Dual-transport Model Context Protocol implementation. |
-| [`yarac-cli`](file:///c:/repo/yarac/crates/yarac-cli) | Headless CLI test runner and MCP server. |
+| [`yarac-core`](crates/yarac-core) | Core data structures, path anchoring, secret registry, and scope resolution stack. |
+| [`yarac-parser`](crates/yarac-parser) | Lossless CST parser and serializer with CRLF/LF preservation. |
+| [`yarac-net`](crates/yarac-net) | High-throughput asynchronous HTTP execution engine. |
+| [`yarac-scripting`](crates/yarac-scripting) | Sandboxed `deno_core` V8 runtime with ephemeral contexts and strict timeouts. |
+| [`yarac-git`](crates/yarac-git) | Hybrid Git status, diff, branch, stage, and commit engine. |
+| [`yarac-importer`](crates/yarac-importer) | Clean collection importer from Postman v2.1. |
+| [`yarac-mcp`](crates/yarac-mcp) | Dual-transport Model Context Protocol implementation. |
+| [`yarac-cli`](crates/yarac-cli) | Headless CLI test runner and MCP server. |
 
 ---
 
@@ -354,7 +354,7 @@ When preparing a new release:
 
 ## Architectural Constraints & Rules
 
-All code and contributions to Yarac must satisfy the strict requirements specified in [`AGENTS.md`](file:///c:/repo/yarac/AGENTS.md):
+All code and contributions to Yarac must satisfy the strict requirements specified in [`AGENTS.md`](AGENTS.md):
 
 1. **Memory Budget:** Maintain a lightweight memory footprint target (<100MB RAM runtime target). No unbounded background workers or unneeded thread pools.
 2. **JavaScript Engine (`deno_core`):**
@@ -373,4 +373,4 @@ All code and contributions to Yarac must satisfy the strict requirements specifi
 
 ## License
 
-This project is licensed under the [MIT License](file:///c:/repo/yarac/LICENSE).
+This project is licensed under the [MIT License](LICENSE).
