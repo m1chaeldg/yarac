@@ -78,7 +78,7 @@ export const backendApi = {
       const resolvedUrl = req.url.replace(/\{\{([^}]+)\}\}/g, (_, k) => envVars[k] || '');
       const headersRecord: Record<string, string> = {};
       for (const h of req.headers) {
-        if (h.enabled && h.key.trim()) {
+        if (h.enabled && !h.key.endsWith('~') && h.key.trim()) {
           headersRecord[h.key.trim()] = h.value;
         }
       }

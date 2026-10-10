@@ -35,6 +35,10 @@ impl VariableScopeStack {
     }
 
     pub fn lookup(&self, key: &str) -> Option<ScopeResolutionResult> {
+        if key.ends_with('~') || key.starts_with('~') {
+            return None;
+        }
+
         // Dynamic variables (evaluated on demand)
         if key.starts_with('$') {
             if let Some(dyn_val) = eval_dynamic_var(key) {

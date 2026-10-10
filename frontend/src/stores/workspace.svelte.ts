@@ -117,29 +117,38 @@ export function serializeToDsl(req: YaracRequest): string {
   lines.push(`timeout_ms = ${req.settings?.timeoutMs ?? 0}`);
   lines.push(``);
 
-  const activeParams = (req.params || []).filter(p => p.enabled && p.key.trim());
-  if (activeParams.length > 0) {
+  const paramsToSerialize = (req.params || []).filter(p => p.key.trim());
+  if (paramsToSerialize.length > 0) {
     lines.push(`[params.query]`);
-    for (const p of activeParams) {
-      lines.push(`${p.key.trim()} = "${p.value.replace(/"/g, '\\"')}"`);
+    for (const p of paramsToSerialize) {
+      const rawK = p.key.trim();
+      const baseK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
+      const k = p.enabled ? baseK : `${baseK}~`;
+      lines.push(`${k} = "${p.value.replace(/"/g, '\\"')}"`);
     }
     lines.push(``);
   }
 
-  const activeHeaders = (req.headers || []).filter(h => h.enabled && h.key.trim());
-  if (activeHeaders.length > 0) {
+  const headersToSerialize = (req.headers || []).filter(h => h.key.trim());
+  if (headersToSerialize.length > 0) {
     lines.push(`[headers]`);
-    for (const h of activeHeaders) {
-      lines.push(`${h.key.trim()} = "${h.value.replace(/"/g, '\\"')}"`);
+    for (const h of headersToSerialize) {
+      const rawK = h.key.trim();
+      const baseK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
+      const k = h.enabled ? baseK : `${baseK}~`;
+      lines.push(`${k} = "${h.value.replace(/"/g, '\\"')}"`);
     }
     lines.push(``);
   }
 
-  const activeVars = (req.variables || []).filter(v => v.enabled && v.key.trim());
-  if (activeVars.length > 0) {
+  const varsToSerialize = (req.variables || []).filter(v => v.key.trim());
+  if (varsToSerialize.length > 0) {
     lines.push(`[variables]`);
-    for (const v of activeVars) {
-      lines.push(`${v.key.trim()} = "${v.value.replace(/"/g, '\\"')}"`);
+    for (const v of varsToSerialize) {
+      const rawK = v.key.trim();
+      const baseK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
+      const k = v.enabled ? baseK : `${baseK}~`;
+      lines.push(`${k} = "${v.value.replace(/"/g, '\\"')}"`);
     }
     lines.push(``);
   }
@@ -255,9 +264,11 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
     const paramLines = paramsMatch[1].split('\n').filter(l => l.includes('='));
     const parsedParams: KeyValuePair[] = paramLines.map(line => {
       const parts = line.split('=');
-      const k = parts[0].trim();
+      const rawK = parts[0].trim();
+      const isInactive = rawK.endsWith('~') || rawK.startsWith('~');
+      const cleanK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
       const v = parts.slice(1).join('=').trim().replace(/^"(.*)"$/, '$1');
-      return { id: generateId(), key: k, value: v, enabled: true };
+      return { id: generateId(), key: cleanK, value: v, enabled: !isInactive };
     });
     if (parsedParams.length > 0) {
       updated.params = parsedParams;
@@ -269,9 +280,11 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
     const headerLines = headersMatch[1].split('\n').filter(l => l.includes('='));
     const parsedHeaders: KeyValuePair[] = headerLines.map(line => {
       const parts = line.split('=');
-      const k = parts[0].trim();
+      const rawK = parts[0].trim();
+      const isInactive = rawK.endsWith('~') || rawK.startsWith('~');
+      const cleanK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
       const v = parts.slice(1).join('=').trim().replace(/^"(.*)"$/, '$1');
-      return { id: generateId(), key: k, value: v, enabled: true };
+      return { id: generateId(), key: cleanK, value: v, enabled: !isInactive };
     });
     if (parsedHeaders.length > 0) {
       updated.headers = parsedHeaders;
@@ -283,9 +296,11 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
     const varLines = varsMatch[1].split('\n').filter(l => l.includes('='));
     const parsedVars: KeyValuePair[] = varLines.map(line => {
       const parts = line.split('=');
-      const k = parts[0].trim();
+      const rawK = parts[0].trim();
+      const isInactive = rawK.endsWith('~') || rawK.startsWith('~');
+      const cleanK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
       const v = parts.slice(1).join('=').trim().replace(/^"(.*)"$/, '$1');
-      return { id: generateId(), key: k, value: v, enabled: true };
+      return { id: generateId(), key: cleanK, value: v, enabled: !isInactive };
     });
     if (parsedVars.length > 0) {
       updated.variables = parsedVars;
@@ -1025,10 +1040,11 @@ export class WorkspaceStore {
     req.isDirty = true;
   }
 
-  saveActiveRequest() {
+  async saveActiveRequest() {
     const req = this.activeRequest;
     if (req) {
       req.isDirty = false;
+      await this.persistToDisk();
     }
   }
 

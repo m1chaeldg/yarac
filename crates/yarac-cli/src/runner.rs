@@ -196,6 +196,9 @@ pub async fn run_suite(target_path: &Path, options: RunnerOptions) -> RunSummary
                     }
                     if let Some((k, v)) = trimmed.split_once('=') {
                         let clean_k = k.trim().to_string();
+                        if clean_k.ends_with('~') || clean_k.starts_with('~') {
+                            continue;
+                        }
                         let clean_v = v.trim().trim_matches('"').trim_matches('\'').to_string();
                         base_env.insert(clean_k, VariableValue::new(clean_v));
                     }

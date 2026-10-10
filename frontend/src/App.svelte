@@ -66,7 +66,7 @@
       const envVars: Record<string, string> = {};
       if (activeEnv) {
         for (const v of activeEnv.variables) {
-          if (v.enabled && v.key.trim()) {
+          if (v.enabled && !v.key.endsWith('~') && v.key.trim()) {
             envVars[v.key.trim()] = v.value;
           }
         }

@@ -7,12 +7,13 @@ url = "{{base_url}}/api/v1/users"
 inherit_auth = false
 verify_ssl = true
 follow_redirects = true
+max_redirects = 5
 timeout_ms = 15000
 
 [headers]
 Content-Type = "application/json"
 Accept = "application/json"
-X-Request-Id = "{{$uuid}}"
+X-Request-Id~ = "{{$uuid}}"
 
 [auth]
 type = "bearer"
@@ -20,12 +21,12 @@ token = "{{api_bearer_token}}"
 
 [flow]
 once_per_run = false
-retry_until = "response.status == 200 && response.body.status == 'ready'"
-retry_interval_ms = 1000
-max_retries = 5
-delay_ms = 150
-jitter_min_ms = 50
-jitter_max_ms = 150
+retry_until = ""
+retry_interval_ms = 500
+max_retries = 3
+delay_ms = 0
+jitter_min_ms = 0
+jitter_max_ms = 0
 
 [body.json]
 ```json
