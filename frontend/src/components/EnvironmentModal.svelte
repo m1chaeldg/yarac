@@ -249,6 +249,9 @@
                         <input
                           type="checkbox"
                           bind:checked={v.enabled}
+                          onchange={() => {
+                            workspaceStore.persistToDisk();
+                          }}
                           class="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0"
                         />
                       </td>
@@ -257,6 +260,16 @@
                           type="text"
                           bind:value={v.key}
                           placeholder="e.g. base_url"
+                          oninput={() => {
+                            if (v.key.endsWith('~')) {
+                              v.key = v.key.slice(0, -1);
+                              v.enabled = false;
+                            } else if (v.key.startsWith('~')) {
+                              v.key = v.key.slice(1);
+                              v.enabled = false;
+                            }
+                            workspaceStore.persistToDisk();
+                          }}
                           class="w-full bg-transparent px-2 py-1 text-slate-200 focus:outline-none"
                         />
                       </td>

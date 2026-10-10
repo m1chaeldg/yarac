@@ -69,3 +69,31 @@ fn test_roundtrip_variables_assert_tests_settings() {
     assert!(req.tests.unwrap().contains("Item Verification"));
 }
 
+#[test]
+fn test_inactive_tilde_keys_roundtrip_and_omitted_from_request() {
+    let input = "version = \"1.0\"\nname = \"Tilde Test\"\nmethod = \"GET\"\nurl = \"http://api.test/items\"\n\n[headers]\nAccept = \"application/json\"\nAuthorization~ = \"Bearer secret_123\"\n~X-Debug = \"true\"\n\n[params.query]\nlimit = \"10\"\nfilter~ = \"active\"\n\n[variables]\nenv_mode = \"dev\"\nsecret_flag~ = \"true\"\n";
+    let cst = parse(input).expect("Parse inactive tilde keys");
+    assert_eq!(serialize(&cst), input, "Roundtrip invariant must hold for inactive tilde keys");
+
+    let req = cst.to_request().expect("To request");
+    // Active headers present
+    assert_eq!(req.headers.get("Accept").unwrap(), "application/json");
+    // Inactive headers (ending or starting with ~) omitted
+    assert!(!req.headers.contains_key("Authorization~"));
+    assert!(!req.headers.contains_key("Authorization"));
+    assert!(!req.headers.contains_key("~X-Debug"));
+    assert!(!req.headers.contains_key("X-Debug"));
+
+    // Active params present
+    assert_eq!(req.query_params.get("limit").unwrap(), "10");
+    // Inactive params omitted
+    assert!(!req.query_params.contains_key("filter~"));
+    assert!(!req.query_params.contains_key("filter"));
+
+    // Active variables present
+    assert_eq!(req.variables.get("env_mode").unwrap(), "dev");
+    // Inactive variables omitted
+    assert!(!req.variables.contains_key("secret_flag~"));
+    assert!(!req.variables.contains_key("secret_flag"));
+}
+

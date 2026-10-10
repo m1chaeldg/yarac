@@ -360,7 +360,16 @@
                       type="text"
                       bind:value={param.key}
                       placeholder="e.g. limit"
-                      oninput={() => workspaceStore.updateActiveRequest({ params: req?.params })}
+                      oninput={() => {
+                        if (param.key.endsWith('~')) {
+                          param.key = param.key.slice(0, -1);
+                          param.enabled = false;
+                        } else if (param.key.startsWith('~')) {
+                          param.key = param.key.slice(1);
+                          param.enabled = false;
+                        }
+                        workspaceStore.updateActiveRequest({ params: req?.params });
+                      }}
                       class="w-full bg-transparent px-2 py-1 text-slate-200 focus:outline-none"
                     />
                   </td>
@@ -444,7 +453,16 @@
                       type="text"
                       bind:value={header.key}
                       placeholder="e.g. Content-Type"
-                      oninput={() => workspaceStore.updateActiveRequest({ headers: req?.headers })}
+                      oninput={() => {
+                        if (header.key.endsWith('~')) {
+                          header.key = header.key.slice(0, -1);
+                          header.enabled = false;
+                        } else if (header.key.startsWith('~')) {
+                          header.key = header.key.slice(1);
+                          header.enabled = false;
+                        }
+                        workspaceStore.updateActiveRequest({ headers: req?.headers });
+                      }}
                       class="w-full bg-transparent px-2 py-1 text-slate-200 focus:outline-none"
                     />
                   </td>
@@ -534,7 +552,16 @@
                       type="text"
                       bind:value={v.key}
                       placeholder="e.g. user_id"
-                      oninput={() => workspaceStore.updateActiveRequest({ variables: req?.variables })}
+                      oninput={() => {
+                        if (v.key.endsWith('~')) {
+                          v.key = v.key.slice(0, -1);
+                          v.enabled = false;
+                        } else if (v.key.startsWith('~')) {
+                          v.key = v.key.slice(1);
+                          v.enabled = false;
+                        }
+                        workspaceStore.updateActiveRequest({ variables: req?.variables });
+                      }}
                       class="w-full bg-transparent px-2 py-1 text-amber-300 focus:outline-none"
                     />
                   </td>

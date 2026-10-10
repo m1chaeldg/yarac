@@ -37,9 +37,9 @@ pub fn parse_trivia(input: &str) -> IResult<&str, String> {
     Ok((rem, raw.to_string()))
 }
 
-/// Recognizes a key identifier: letters, digits, '_', '-', '.'
+/// Recognizes a key identifier: letters, digits, '_', '-', '.', '~'
 fn parse_key(input: &str) -> IResult<&str, &str> {
-    take_while(|c: char| c.is_alphanumeric() || c == '_' || c == '-' || c == '.')(input)
+    take_while(|c: char| c.is_alphanumeric() || c == '_' || c == '-' || c == '.' || c == '~')(input)
 }
 
 // Key identifier parser

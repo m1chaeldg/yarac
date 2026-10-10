@@ -300,7 +300,9 @@ Connection: close\r\n\r\n{}",
 
         let mut scope = VariableScopeStack::new();
         for (k, v) in payload.env_vars {
-            scope.environment.insert(k, VariableValue::new(v));
+            if !k.ends_with('~') && !k.starts_with('~') {
+                scope.environment.insert(k, VariableValue::new(v));
+            }
         }
 
         let secrets: HashMap<String, String> = HashMap::new();

@@ -17,7 +17,7 @@ export function resolveUrl(req: YaracRequest, envVars?: Record<string, string>):
   }
 
   // Active query parameters
-  const activeParams = req.params.filter(p => p.enabled && p.key.trim());
+  const activeParams = req.params.filter(p => p.enabled && !p.key.endsWith('~') && p.key.trim());
   if (activeParams.length > 0) {
     const separator = url.includes('?') ? '&' : '?';
     const qs = activeParams
@@ -40,7 +40,7 @@ export function resolveUrl(req: YaracRequest, envVars?: Record<string, string>):
 export function resolveHeaders(req: YaracRequest, envVars?: Record<string, string>): Record<string, string> {
   const headers: Record<string, string> = {};
 
-  for (const h of req.headers.filter(h => h.enabled && h.key.trim())) {
+  for (const h of req.headers.filter(h => h.enabled && !h.key.endsWith('~') && h.key.trim())) {
     let val = h.value;
     if (envVars) {
       for (const [k, v] of Object.entries(envVars)) {
@@ -106,7 +106,7 @@ export function resolveBody(req: YaracRequest, envVars?: Record<string, string>)
     return content;
   }
   if (req.body.type === 'form-urlencoded') {
-    const active = req.body.formData.filter(f => f.enabled && f.key.trim());
+    const active = req.body.formData.filter(f => f.enabled && !f.key.endsWith('~') && f.key.trim());
     return active
       .map(f => {
         let val = f.value;

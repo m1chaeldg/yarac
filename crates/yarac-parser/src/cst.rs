@@ -153,14 +153,18 @@ impl CstDocument {
                     "headers" => {
                         for sub in &table.items {
                             if let CstTableItem::KeyValue(kv) = sub {
-                                req.headers.insert(kv.key.clone(), kv.value.as_str().to_string());
+                                if !kv.key.ends_with('~') && !kv.key.starts_with('~') {
+                                    req.headers.insert(kv.key.clone(), kv.value.as_str().to_string());
+                                }
                             }
                         }
                     }
                     "params.query" => {
                         for sub in &table.items {
                             if let CstTableItem::KeyValue(kv) = sub {
-                                req.query_params.insert(kv.key.clone(), kv.value.as_str().to_string());
+                                if !kv.key.ends_with('~') && !kv.key.starts_with('~') {
+                                    req.query_params.insert(kv.key.clone(), kv.value.as_str().to_string());
+                                }
                             }
                         }
                     }
@@ -267,7 +271,9 @@ impl CstDocument {
                     "variables" => {
                         for sub in &table.items {
                             if let CstTableItem::KeyValue(kv) = sub {
-                                req.variables.insert(kv.key.clone(), kv.value.as_str().to_string());
+                                if !kv.key.ends_with('~') && !kv.key.starts_with('~') {
+                                    req.variables.insert(kv.key.clone(), kv.value.as_str().to_string());
+                                }
                             }
                         }
                     }
