@@ -83,6 +83,9 @@ pub struct FlowControl {
     pub retry_until: Option<String>,
     pub retry_interval_ms: u64,
     pub max_retries: u32,
+    pub delay_ms: Option<u64>,
+    pub jitter_min_ms: Option<u64>,
+    pub jitter_max_ms: Option<u64>,
 }
 
 impl Default for FlowControl {
@@ -92,9 +95,35 @@ impl Default for FlowControl {
             retry_until: None,
             retry_interval_ms: 1000,
             max_retries: 3,
+            delay_ms: None,
+            jitter_min_ms: None,
+            jitter_max_ms: None,
         }
     }
 }
+
+impl FlowControl {
+    pub fn calculate_pacing_delay(&self) -> Option<std::time::Duration> {
+        let mut total_ms = self.delay_ms.unwrap_or(0);
+        if let (Some(min), Some(max)) = (self.jitter_min_ms, self.jitter_max_ms) {
+            if max >= min {
+                let jitter = if max == min {
+                    min
+                } else {
+                    use rand::Rng;
+                    rand::thread_rng().gen_range(min..=max)
+                };
+                total_ms += jitter;
+            }
+        }
+        if total_ms > 0 {
+            Some(std::time::Duration::from_millis(total_ms))
+        } else {
+            None
+        }
+    }
+}
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content")]

@@ -319,9 +319,77 @@ impl ScriptRunner {
 
         Ok(state.env_vars)
     }
+
+    /// Evaluates a declarative polling predicate expression (e.g. `response.status == 200 && response.body.status == 'ready'`).
+    pub async fn evaluate_predicate(
+        &self,
+        expression: &str,
+        status_code: u16,
+        response_body: &str,
+        response_headers: &indexmap::IndexMap<String, String>,
+    ) -> Result<bool, ScriptError> {
+        if expression.trim().is_empty() {
+            return Ok(true);
+        }
+
+        let expr = expression.to_string();
+        let timeout = self.timeout;
+        let body_str = response_body.to_string();
+        let headers_map: HashMap<String, String> = response_headers
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        let run_result = tokio::task::spawn_blocking(move || {
+            let mut runtime = JsRuntime::new(RuntimeOptions::default());
+
+            let headers_json = serde_json::to_string(&headers_map).unwrap_or_else(|_| "{}".to_string());
+            let body_escaped = serde_json::to_string(&body_str).unwrap_or_else(|_| "\"\"".to_string());
+
+            let setup_js = format!(
+                r#"
+                let parsedBody = null;
+                try {{
+                    parsedBody = JSON.parse({body_escaped});
+                }} catch (e) {{
+                    parsedBody = {body_escaped};
+                }}
+
+                globalThis.response = {{
+                    status: {status_code},
+                    statusCode: {status_code},
+                    body: parsedBody,
+                    headers: {headers_json},
+                    header: function(name) {{
+                        const h = {headers_json};
+                        for (const k in h) {{
+                            if (k.toLowerCase() === name.toLowerCase()) return h[k];
+                        }}
+                        return null;
+                    }}
+                }};
+                Boolean({expr})
+                "#
+            );
+
+            let val = runtime
+                .execute_script("<predicate>", setup_js)
+                .map_err(|e| ScriptError::EvalError(e.to_string()))?;
+
+            deno_core::scope!(scope, &mut runtime);
+            let local_val = deno_core::v8::Local::new(scope, val);
+            Ok(local_val.boolean_value(scope))
+        });
+
+        tokio::time::timeout(timeout, run_result)
+            .await
+            .map_err(|_| ScriptError::Timeout(timeout))?
+            .map_err(|e| ScriptError::EvalError(e.to_string()))?
+    }
 }
 
 #[cfg(test)]
+
 mod tests {
     use super::*;
 
@@ -420,4 +488,35 @@ mod tests {
         assert!(!report.assertions[0].passed);
         assert!(report.assertions[0].error_message.is_some());
     }
+
+    #[tokio::test]
+    async fn test_evaluate_predicate() {
+        let runner = ScriptRunner::default();
+        let headers = indexmap::IndexMap::new();
+
+        // Matching predicate
+        let passed = runner
+            .evaluate_predicate(
+                "response.status == 200 && response.body.status == 'ready'",
+                200,
+                r#"{"status": "ready", "count": 5}"#,
+                &headers,
+            )
+            .await
+            .unwrap();
+        assert!(passed);
+
+        // Failing predicate
+        let not_passed = runner
+            .evaluate_predicate(
+                "response.status == 200 && response.body.status == 'ready'",
+                200,
+                r#"{"status": "pending", "count": 5}"#,
+                &headers,
+            )
+            .await
+            .unwrap();
+        assert!(!not_passed);
+    }
 }
+

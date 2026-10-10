@@ -17,8 +17,11 @@
 - [The `.yarac` File Format](#the-yarac-file-format)
 - [CLI Usage (`yarac-cli`)](#cli-usage-yarac-cli)
   - [Headless Test Runner](#headless-test-runner)
+  - [High-Concurrency Runner & Statistical Profiling](#high-concurrency-runner--statistical-profiling)
+  - [Interoperability & Schema Conversion (`import` / `export`)](#interoperability--schema-conversion-import--export)
   - [Deterministic Exit Codes](#deterministic-exit-codes)
   - [Model Context Protocol (MCP) Server](#model-context-protocol-mcp-server)
+- [Frontend GUI Client (Svelte 5 & CodeMirror 6)](#frontend-gui-client-svelte-5--codemirror-6)
 - [Developer Instructions](#developer-instructions)
   - [Prerequisites](#prerequisites)
   - [Getting Started](#getting-started)
@@ -104,7 +107,7 @@ c:/repo/yarac/
 | [`yarac-net`](crates/yarac-net) | High-throughput asynchronous HTTP execution engine. |
 | [`yarac-scripting`](crates/yarac-scripting) | Sandboxed `deno_core` V8 runtime with ephemeral contexts and strict timeouts. |
 | [`yarac-git`](crates/yarac-git) | Hybrid Git status, diff, branch, stage, and commit engine. |
-| [`yarac-importer`](crates/yarac-importer) | Clean collection importer from Postman v2.1. |
+| [`yarac-importer`](crates/yarac-importer) | Clean collection importer/exporter for Bruno (`.bru`), OpenAPI v3/v3.1, and Postman v2.1. |
 | [`yarac-mcp`](crates/yarac-mcp) | Dual-transport Model Context Protocol implementation. |
 | [`yarac-cli`](crates/yarac-cli) | Headless CLI test runner and MCP server. |
 
@@ -197,6 +200,70 @@ yarac-cli run ./collections/users/create_user.yarac --env ./environments/staging
 yarac-cli run ./collections/checkout --reporter junit > results.xml
 ```
 
+### High-Concurrency Runner & Statistical Profiling
+
+Execute high-throughput load tests and statistical latency profiling with Tokio worker pools and `hdrhistogram`:
+
+```bash
+# Run with 25 concurrent workers for 30 seconds with 5-second linear ramp-up
+yarac-cli run ./collections/checkout --concurrency 25 --duration 30s --ramp-up 5s
+
+# Run parameterized iterations using external CSV or JSON test data
+yarac-cli run ./collections/users/create_user.yarac --iterations 100 --data ./fixtures/users.csv
+```
+
+#### Statistical Profiling Output & ASCII Distribution Chart
+
+When concurrency or duration flags are used, `yarac-cli` outputs an in-depth HDR Histogram summary and ASCII latency distribution chart:
+
+```text
+======================================================================
+  YARAC RUNNER PROFILE SUMMARY
+======================================================================
+  Total Requests  : 1,250
+  Successful      : 1,248
+  Failed          : 2 (0.16%)
+  Throughput      : 83.33 req/sec
+  Duration        : 15.00s
+----------------------------------------------------------------------
+  LATENCY PERCENTILES
+----------------------------------------------------------------------
+  Min             : 12.40ms
+  Mean            : 18.25ms
+  p50 (Median)    : 16.80ms
+  p90             : 24.10ms
+  p95             : 31.50ms
+  p99             : 48.90ms
+  Max             : 72.30ms
+----------------------------------------------------------------------
+  LATENCY DISTRIBUTION (ASCII)
+----------------------------------------------------------------------
+  [ 12ms -  24ms]  ████████████████████████████████████  985 (78.8%)
+  [ 24ms -  36ms]  ████████                              210 (16.8%)
+  [ 36ms -  48ms]  ██                                     45 ( 3.6%)
+  [ 48ms -  60ms]  ▏                                       8 ( 0.6%)
+  [ 60ms -  73ms]  ▏                                       2 ( 0.2%)
+======================================================================
+```
+
+### Interoperability & Schema Conversion (`import` / `export`)
+
+Convert between Postman, Bruno, OpenAPI, and native `.yarac` collections seamlessly:
+
+```bash
+# Import a Bruno (.bru) file into native .yarac format
+yarac-cli import ./api-test/get_users.bru --format bruno --output ./collections/users
+
+# Import an OpenAPI v3/v3.1 specification (JSON or YAML)
+yarac-cli import ./openapi/petstore.yaml --format openapi --output ./collections/petstore
+
+# Import a Postman Collection v2.1
+yarac-cli import ./postman_collection.json --format postman --output ./collections/imported
+
+# Export .yarac collection to OpenAPI v3.1 with x-yarac-* vendor overlays
+yarac-cli export openapi ./collections/users --output ./dist/openapi.json --title "User Management API"
+```
+
 ### Deterministic Exit Codes
 
 `yarac-cli run` returns standard, deterministic exit codes designed for CI/CD automation:
@@ -231,6 +298,37 @@ yarac-cli mcp --transport sse --port 9472
   }
 }
 ```
+
+---
+
+## Frontend GUI Client (Svelte 5 & CodeMirror 6)
+
+Yarac provides a modern, high-performance desktop GUI client built on **Svelte 5 runes**, **Tailwind CSS**, and **CodeMirror 6** in [`frontend/`](frontend).
+
+### Running the GUI Client
+
+```bash
+# 1. Navigate to the frontend directory
+cd frontend
+
+# 2. Start the live Vite development server
+npm run dev
+# -> Opens http://localhost:5173
+
+# 3. Or compile optimized production assets
+npm run build
+```
+
+### Client Architecture & Modules
+
+| GUI Module | Description | Component |
+|---|---|---|
+| **⚡ Request Studio** | Visual request editor with URL bar, HTTP methods, headers, auth configs, payload viewer, and CodeMirror 6 code editor with live syntax highlighting and variable hover tooltips. | [`App.svelte`](frontend/src/App.svelte) |
+| **🎛️ Flow Controls Panel** | Visual editor for `once_per_run`, `retry_until` expression builder, polling interval, max retry caps, base delay, and jitter ranges with **bi-directional CST DSL synchronization**. | [`FlowPanel.svelte`](frontend/src/components/FlowPanel.svelte) |
+| **📊 Collection Runner & HDR Profiler** | Dedicated dashboard for running multi-request collections with concurrency sliders, CSV/JSON iteration data input, live throughput/percentile metrics (`p50`, `p90`, `p99`, `RPS`, error rates), and interactive HDR percentile distribution bar charts. | [`RunnerView.svelte`](frontend/src/components/RunnerView.svelte) |
+| **🔄 Interoperability Hub** | Import/Export modal for Bruno (`.bru`), OpenAPI v3/v3.1 (JSON/YAML), and Postman v2.1 collections, plus exporting to OpenAPI v3.1 with `x-yarac-*` overlays. | [`InteropModal.svelte`](frontend/src/components/InteropModal.svelte) |
+| **🛡️ 3-Way Conflict Resolver** | Visual 3-way merge conflict resolver comparing base, local, and external disk changes when Git conflicts occur, preventing silent file overwrites. | [`ConflictModal.svelte`](frontend/src/components/ConflictModal.svelte) |
+| **📦 Large Payload Virtualizer** | Virtualized viewport for large responses (>2MB) to maintain low memory overhead without freezing the UI thread. | [`PayloadViewer.svelte`](frontend/src/components/PayloadViewer.svelte) |
 
 ---
 

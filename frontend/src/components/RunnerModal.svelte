@@ -1,0 +1,342 @@
+<script lang="ts">
+  // Svelte 5 runes
+  interface Props {
+    isOpen: boolean;
+    onClose: () => void;
+  }
+
+  let { isOpen, onClose }: Props = $props();
+
+  let collectionName = $state('User Management Suite');
+  let iterations = $state(5);
+  let concurrency = $state(1);
+  let delayMs = $state(50);
+  let dataInput = $state(`[
+  { "username": "alice", "role": "admin" },
+  { "username": "bob", "role": "editor" },
+  { "username": "charlie", "role": "viewer" },
+  { "username": "david", "role": "developer" },
+  { "username": "eve", "role": "auditor" }
+]`);
+
+  let isRunning = $state(false);
+  let currentIteration = $state(0);
+  let runLogs = $state<Array<{
+    iteration: number;
+    requestName: string;
+    method: string;
+    status: number;
+    durationMs: number;
+    assertions: string;
+    passed: boolean;
+  }>>([]);
+
+  // Latencies for HDR Histogram calculation
+  let latencies = $state<number[]>([]);
+
+  let stats = $derived.by(() => {
+    if (latencies.length === 0) {
+      return {
+        count: 0,
+        min: 0,
+        max: 0,
+        mean: 0,
+        p50: 0,
+        p90: 0,
+        p95: 0,
+        p99: 0,
+        rps: 0,
+        errorRate: 0,
+      };
+    }
+
+    const sorted = [...latencies].sort((a, b) => a - b);
+    const count = sorted.length;
+    const min = sorted[0];
+    const max = sorted[count - 1];
+    const sum = sorted.reduce((a, b) => a + b, 0);
+    const mean = Math.round(sum / count);
+
+    const p = (q: number) => sorted[Math.min(Math.floor(count * q), count - 1)];
+
+    const failures = runLogs.filter((l) => !l.passed).length;
+    const errorRate = Math.round((failures / count) * 100);
+    const totalElapsedSec = (sum + count * delayMs) / 1000 || 1;
+    const rps = (count / totalElapsedSec).toFixed(1);
+
+    return {
+      count,
+      min,
+      max,
+      mean,
+      p50: p(0.5),
+      p90: p(0.9),
+      p95: p(0.95),
+      p99: p(0.99),
+      rps: parseFloat(rps),
+      errorRate,
+    };
+  });
+
+  async function startRun() {
+    isRunning = true;
+    currentIteration = 0;
+    runLogs = [];
+    latencies = [];
+
+    let parsedData: Array<Record<string, string>> = [];
+    try {
+      parsedData = JSON.parse(dataInput);
+    } catch {
+      parsedData = Array.from({ length: iterations }, (_, i) => ({
+        iteration: `${i + 1}`,
+      }));
+    }
+
+    const effectiveIterations = Math.max(iterations, parsedData.length);
+
+    for (let i = 0; i < effectiveIterations; i++) {
+      if (!isRunning) break;
+      currentIteration = i + 1;
+
+      // Simulated network execution with jitter
+      const baseLatency = 20 + Math.floor(Math.random() * 45);
+      const simulatedDuration = baseLatency + (concurrency > 1 ? Math.floor(Math.random() * 20) : 0);
+
+      await new Promise((r) => setTimeout(r, Math.max(delayMs, 30)));
+
+      latencies = [...latencies, simulatedDuration];
+      const isPass = Math.random() > 0.05; // 95% success rate
+
+      const user = parsedData[i % parsedData.length]?.username || `user_${i + 1}`;
+
+      runLogs = [
+        {
+          iteration: i + 1,
+          requestName: `Create User (${user})`,
+          method: 'POST',
+          status: isPass ? 201 : 500,
+          durationMs: simulatedDuration,
+          assertions: isPass ? '2/2 Passed' : '1/2 Passed (Status match failed)',
+          passed: isPass,
+        },
+        ...runLogs,
+      ];
+    }
+
+    isRunning = false;
+  }
+
+  function stopRun() {
+    isRunning = false;
+  }
+</script>
+
+{#if isOpen}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden text-slate-100">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center gap-3">
+          <div class="w-3 h-3 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/40"></div>
+          <h2 class="text-base font-semibold text-slate-100">Collection Runner & Statistical Profiler</h2>
+          <span class="text-xs px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/40 font-mono">Phase 2</span>
+        </div>
+        <button
+          onclick={onClose}
+          aria-label="Close runner"
+          class="text-slate-400 hover:text-slate-200 transition-colors text-lg font-mono"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-6 overflow-y-auto">
+        <!-- Runner Controls Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-950/40 p-4 rounded-lg border border-slate-800/80">
+          <div>
+            <label for="runner-col-name" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Collection</label>
+            <input
+              id="runner-col-name"
+              type="text"
+              bind:value={collectionName}
+              class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-sky-500"
+            />
+          </div>
+
+          <div>
+            <label for="runner-iterations" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Iterations</label>
+            <input
+              id="runner-iterations"
+              type="number"
+              min="1"
+              max="1000"
+              bind:value={iterations}
+              class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-sky-500 font-mono"
+            />
+          </div>
+
+          <div>
+            <label for="runner-concurrency" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Concurrency</label>
+            <input
+              id="runner-concurrency"
+              type="number"
+              min="1"
+              max="50"
+              bind:value={concurrency}
+              class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-sky-500 font-mono"
+            />
+          </div>
+
+          <div>
+            <label for="runner-pacing" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Pacing (ms)</label>
+            <input
+              id="runner-pacing"
+              type="number"
+              min="0"
+              step="10"
+              bind:value={delayMs}
+              class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-sky-500 font-mono"
+            />
+          </div>
+        </div>
+
+        <!-- Iteration Data Config (CSV/JSON) -->
+        <div>
+          <label for="runner-data-input" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+            Iteration Data (JSON / CSV variables for <span class="font-mono text-sky-400">&#123;&#123;var&#125;&#125;</span> injection)
+          </label>
+          <textarea
+            id="runner-data-input"
+            rows="3"
+            bind:value={dataInput}
+            class="w-full bg-slate-950 border border-slate-800 text-slate-300 font-mono text-xs rounded-lg p-2.5 focus:outline-none focus:border-sky-500"
+          ></textarea>
+        </div>
+
+        <!-- Real-Time Statistical Profiler Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+            <span class="text-[11px] text-slate-500 block uppercase font-medium">Throughput</span>
+            <span class="text-base font-bold text-sky-400 font-mono">{stats.rps} <span class="text-xs text-slate-500 font-normal">req/s</span></span>
+          </div>
+
+          <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+            <span class="text-[11px] text-slate-500 block uppercase font-medium">p50 Latency</span>
+            <span class="text-base font-bold text-slate-200 font-mono">{stats.p50} <span class="text-xs text-slate-500 font-normal">ms</span></span>
+          </div>
+
+          <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+            <span class="text-[11px] text-slate-500 block uppercase font-medium">p90 Latency</span>
+            <span class="text-base font-bold text-amber-400 font-mono">{stats.p90} <span class="text-xs text-slate-500 font-normal">ms</span></span>
+          </div>
+
+          <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+            <span class="text-[11px] text-slate-500 block uppercase font-medium">p99 Latency</span>
+            <span class="text-base font-bold text-rose-400 font-mono">{stats.p99} <span class="text-xs text-slate-500 font-normal">ms</span></span>
+          </div>
+
+          <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+            <span class="text-[11px] text-slate-500 block uppercase font-medium">Error Rate</span>
+            <span class="text-base font-bold {stats.errorRate > 0 ? 'text-rose-400' : 'text-emerald-400'} font-mono">{stats.errorRate}%</span>
+          </div>
+
+          <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+            <span class="text-[11px] text-slate-500 block uppercase font-medium">Total Runs</span>
+            <span class="text-base font-bold text-slate-300 font-mono">{stats.count}</span>
+          </div>
+        </div>
+
+        <!-- Latency Percentile Visual Distribution Bar Chart -->
+        {#if stats.count > 0}
+          <div class="bg-slate-950/40 p-4 rounded-lg border border-slate-800/80 space-y-2">
+            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">HDR Latency Percentile Distribution</div>
+            {#each [
+              { label: 'Min', val: stats.min, color: 'bg-emerald-500' },
+              { label: 'p50', val: stats.p50, color: 'bg-sky-500' },
+              { label: 'p90', val: stats.p90, color: 'bg-amber-500' },
+              { label: 'p95', val: stats.p95, color: 'bg-orange-500' },
+              { label: 'p99', val: stats.p99, color: 'bg-rose-500' },
+              { label: 'Max', val: stats.max, color: 'bg-red-500' }
+            ] as row}
+              <div class="flex items-center gap-3 text-xs font-mono">
+                <span class="w-8 text-slate-400">{row.label}</span>
+                <div class="flex-1 bg-slate-900 h-3 rounded-full overflow-hidden border border-slate-800">
+                  <div
+                    class="{row.color} h-full transition-all duration-300"
+                    style="width: {Math.max(4, Math.min(100, (row.val / (stats.max || 1)) * 100))}%"
+                  ></div>
+                </div>
+                <span class="w-16 text-right text-slate-300">{row.val} ms</span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        <!-- Iteration Execution Logs -->
+        <div class="space-y-2">
+          <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <span>Execution Timeline</span>
+            <span class="text-[11px] text-slate-500 font-mono">{runLogs.length} items logged</span>
+          </div>
+
+          <div class="max-h-48 overflow-y-auto space-y-1.5 pr-1 font-mono text-xs">
+            {#if runLogs.length === 0}
+              <div class="text-slate-500 text-center py-6 bg-slate-950/40 rounded-lg border border-dashed border-slate-800">
+                Click "Run Collection" to execute data iterations and capture latency metrics.
+              </div>
+            {:else}
+              {#each runLogs as log}
+                <div class="p-2 rounded bg-slate-950/70 border border-slate-800/80 flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded {log.passed ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-rose-950 text-rose-400 border border-rose-800/40'} font-bold">
+                      {log.status}
+                    </span>
+                    <span class="text-slate-400">#{log.iteration}</span>
+                    <span class="text-slate-200 font-semibold">{log.requestName}</span>
+                  </div>
+                  <div class="flex items-center gap-3 text-slate-400">
+                    <span class="text-emerald-400">{log.assertions}</span>
+                    <span class="text-sky-400 font-bold">{log.durationMs}ms</span>
+                  </div>
+                </div>
+              {/each}
+            {/if}
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="text-xs text-slate-400">
+          {#if isRunning}
+            <span class="text-sky-400 animate-pulse font-medium">Running iteration {currentIteration} of {iterations}...</span>
+          {:else if stats.count > 0}
+            <span class="text-emerald-400 font-medium">Run completed: {stats.count} requests executed</span>
+          {:else}
+            <span>Ready to execute collection</span>
+          {/if}
+        </div>
+
+        <div class="flex items-center gap-2">
+          {#if isRunning}
+            <button
+              onclick={stopRun}
+              class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs transition-colors shadow-sm"
+            >
+              Stop Run
+            </button>
+          {:else}
+            <button
+              onclick={startRun}
+              class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-colors shadow-sm flex items-center gap-1.5"
+            >
+              <span>▶</span> Run Collection
+            </button>
+          {/if}
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}

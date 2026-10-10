@@ -36,3 +36,21 @@ fn test_conflict_marker_roundtrip() {
     assert!(cst.has_conflicts(), "Should detect git conflict markers");
     assert_eq!(serialize(&cst), conflict_input, "Roundtrip must preserve conflict markers");
 }
+
+#[test]
+fn test_roundtrip_flow_with_pacing_and_jitter() {
+    let flow_input = "version = \"1.0\"\nname = \"Pacing Test\"\nmethod = \"GET\"\nurl = \"http://api.test/items\"\n\n[flow]\nonce_per_run = true\nretry_until = \"response.status == 200\"\nretry_interval_ms = 500\nmax_retries = 3\ndelay_ms = 250\njitter_min_ms = 50\njitter_max_ms = 150\n";
+    let cst = parse(flow_input).expect("Parse flow");
+    assert_eq!(serialize(&cst), flow_input, "Round-trip must match flow input exactly");
+
+    let req = cst.to_request().expect("To request");
+    let flow = req.flow.expect("Flow present");
+    assert_eq!(flow.once_per_run, true);
+    assert_eq!(flow.retry_until.as_deref(), Some("response.status == 200"));
+    assert_eq!(flow.retry_interval_ms, 500);
+    assert_eq!(flow.max_retries, 3);
+    assert_eq!(flow.delay_ms, Some(250));
+    assert_eq!(flow.jitter_min_ms, Some(50));
+    assert_eq!(flow.jitter_max_ms, Some(150));
+}
+
