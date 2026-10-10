@@ -100,6 +100,14 @@
       view?.destroy();
     };
   });
+
+  $effect(() => {
+    if (view && content !== view.state.doc.toString()) {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: content }
+      });
+    }
+  });
 </script>
 
 <div class="w-full h-full relative" bind:this={editorElement}></div>

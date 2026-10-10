@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-10-10
+
+### Added
+- **Frontend Studio Suite & Visual Request Workbench (`frontend/`)**:
+  - **Multi-Workspace & Collection State Store (`stores/workspace.svelte.ts`)**: Svelte 5 reactive runes store managing multi-workspace hierarchy, collections, request tabs, and environment profiles with automatic `localStorage` persistence.
+  - **Visual Request Editor (`components/VisualEditor.svelte`)**: Bruno/Postman-grade visual forms for query parameters, headers with common presets, authentication profiles (Bearer, Basic Auth, API Key in header/query, Inherit), and multi-type body payloads (JSON, URL-encoded, multipart, raw text).
+  - **Lossless Bidirectional DSL Sync**: Real-time two-way synchronization between visual forms and `.yarac` CodeMirror 6 code editor without loss of formatting or comments.
+  - **Multi-Tab Request Interface (`components/TabBar.svelte`)**: Browser-style tab strip with HTTP method pills, unsaved dirty indicators, and tab switching/closing.
+  - **Response Analyzer & Visualizer (`components/ResponseViewer.svelte`)**:
+    - Formatted and syntax-highlighted JSON viewer.
+    - Automatic JSON-flattening data table view for structured array and nested object inspection.
+    - Native responsive SVG Data Visualizer generating interactive Pie Charts and Bar Charts from numerical response metrics.
+    - Sandboxed HTML render viewport and header inspector.
+  - **Bruno-Style Environment Manager (`components/EnvironmentModal.svelte`)**: Multi-profile management with 1-click profile duplication, cross-environment variable copying, and secret masking.
+  - **Smooth Resizable Split Panes (`components/Resizer.svelte`)**: Fully accessible keyboard- and mouse-resizable divider handles for sidebar width and Request/Response viewport height with double-click reset.
+
 ## [0.2.0] - 2026-10-10
 
 ### Added

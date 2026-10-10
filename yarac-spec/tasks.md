@@ -46,6 +46,6 @@
 
 ### Phase 3: Advanced Integrations (Post-MVP)
 - [ ] AWS Secrets Manager and HashiCorp Vault live resolution engines.
-- [ ] Sandboxed HTML Visualizer ("App" view) in an isolated sub-view.
+- [x] Sandboxed HTML Visualizer ("App" view) in an isolated sub-view.
 - [ ] External VS Code / LSP extension for standalone `.yarac` editing.
 - [ ] Built-in MITM local HTTP Proxy recorder for capturing browser traffic into `.yarac` requests.
