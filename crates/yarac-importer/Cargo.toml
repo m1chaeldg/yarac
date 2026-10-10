@@ -1,0 +1,13 @@
+[package]
+name = "yarac-importer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+yarac-core = { path = "../yarac-core" }
+yarac-parser = { path = "../yarac-parser" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+indexmap.workspace = true

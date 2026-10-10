@@ -1,0 +1,13 @@
+version = "1.0"
+name = "Httpbin Test"
+method = "GET"
+url = "https://httpbin.org/get"
+
+[settings]
+inherit_auth = false
+verify_ssl = true
+follow_redirects = true
+timeout_ms = 5000
+
+[headers]
+Accept = "application/json"

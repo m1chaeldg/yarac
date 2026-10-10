@@ -1,0 +1,15 @@
+[package]
+name = "yarac-parser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+yarac-core = { path = "../yarac-core" }
+nom.workspace = true
+thiserror.workspace = true
+indexmap.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1.4"

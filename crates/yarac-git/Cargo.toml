@@ -1,0 +1,11 @@
+[package]
+name = "yarac-git"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+yarac-core = { path = "../yarac-core" }
+thiserror.workspace = true
+serde.workspace = true
+tokio.workspace = true
