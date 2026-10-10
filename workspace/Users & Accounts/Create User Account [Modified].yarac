@@ -1,0 +1,4 @@
+version = "1.0"
+name = "Create User Account [Modified]"
+method = "POST"
+url = "{{base_url}}/api/v1/users"
