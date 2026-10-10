@@ -1,34 +1,34 @@
 # Implementation Tasks
 
 ### Phase 1: MVP Core Architecture
-- [ ] Initialize Tauri v2 + Svelte 5 + Tailwind CSS project skeleton.
-- [ ] Build Lossless CST Parser/Serializer in Rust using `nom` or `pest`.
-  - [ ] Implement CRLF/LF newline preservation.
-  - [ ] Unit test suite verifying `serialize(parse(x)) == x`.
-  - [ ] Raw CodeMirror fallback reader for Git merge conflict markers.
-- [ ] Build Postman Collection v2.1 Importer (direct translation to `.yarac` without runtime polyfill layers).
-- [ ] Implement Rust networking core with `reqwest`.
-  - [ ] Integrate `reqwest_cookie_store` with environment isolation.
-  - [ ] Add global/collection SSL bypass and mTLS cert loaders.
-  - [ ] Implement chunked streaming/IPC virtualization for payloads > 2MB.
-- [ ] Integrate `deno_core` engine for script execution.
-  - [ ] Implement ephemeral execution contexts with explicit garbage collection per request.
-  - [ ] Implement `5000ms` hard execution interrupt handler.
-  - [ ] Build Token-Boundary Secret Scrubber (>= 6 chars entropy threshold).
-- [ ] Implement storage & file handling:
-  - [ ] Integrate `notify` crate for background filesystem change detection.
-  - [ ] Implement Workspace Relative Path Anchoring for file uploads and certs.
-  - [ ] Wire variable store to `.yarac.local` and OS `keyring` storage.
-- [ ] Build Svelte 5 + CodeMirror 6 UI:
-  - [ ] Add CodeMirror Hover Tooltip extension for variable resolution.
-  - [ ] Build 3-way external conflict resolver modal.
-- [ ] Build Hybrid Git Engine:
-  - [ ] Implement `gitoxide` for local status, diff, branch, stage, and commit.
-  - [ ] Implement system `git` CLI fallback for complex remote push/pull.
-- [ ] Build Model Context Protocol (MCP) interface:
-  - [ ] Implement `stdio` transport in CLI (`yarac-cli mcp`).
-  - [ ] Implement HTTP/SSE transport with Keyring-backed token auth and UI toggle.
-- [ ] Implement `yarac-cli` headless runner with JUnit XML, TAP, and deterministic exit codes (`0`, `1`, `2`, `3`).
+- [x] Initialize Tauri v2 + Svelte 5 + Tailwind CSS project skeleton.
+- [x] Build Lossless CST Parser/Serializer in Rust using `nom` or `pest`.
+  - [x] Implement CRLF/LF newline preservation.
+  - [x] Unit test suite verifying `serialize(parse(x)) == x`.
+  - [x] Raw CodeMirror fallback reader for Git merge conflict markers.
+- [x] Build Postman Collection v2.1 Importer (direct translation to `.yarac` without runtime polyfill layers).
+- [x] Implement Rust networking core with `reqwest`.
+  - [x] Integrate `reqwest_cookie_store` with environment isolation.
+  - [x] Add global/collection SSL bypass and mTLS cert loaders.
+  - [x] Implement chunked streaming/IPC virtualization for payloads > 2MB.
+- [x] Integrate `deno_core` engine for script execution.
+  - [x] Implement ephemeral execution contexts with explicit garbage collection per request.
+  - [x] Implement `5000ms` hard execution interrupt handler.
+  - [x] Build Token-Boundary Secret Scrubber (>= 6 chars entropy threshold).
+- [x] Implement storage & file handling:
+  - [x] Integrate `notify` crate for background filesystem change detection.
+  - [x] Implement Workspace Relative Path Anchoring for file uploads and certs.
+  - [x] Wire variable store to `.yarac.local` and OS `keyring` storage.
+- [x] Build Svelte 5 + CodeMirror 6 UI:
+  - [x] Add CodeMirror Hover Tooltip extension for variable resolution.
+  - [x] Build 3-way external conflict resolver modal.
+- [x] Build Hybrid Git Engine:
+  - [x] Implement `gitoxide` for local status, diff, branch, stage, and commit.
+  - [x] Implement system `git` CLI fallback for complex remote push/pull.
+- [x] Build Model Context Protocol (MCP) interface:
+  - [x] Implement `stdio` transport in CLI (`yarac-cli mcp`).
+  - [x] Implement HTTP/SSE transport with Keyring-backed token auth and UI toggle.
+- [x] Implement `yarac-cli` headless runner with JUnit XML, TAP, and deterministic exit codes (`0`, `1`, `2`, `3`).
 
 ### Phase 2: Performance Profiling, Flow Controls & Interoperability
 - [ ] Build Declarative Flow Controllers in the Rust runner:

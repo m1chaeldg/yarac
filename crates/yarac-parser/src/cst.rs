@@ -5,11 +5,28 @@ pub struct CstDocument {
     pub items: Vec<CstTopLevelItem>,
 }
 
+impl CstDocument {
+    pub fn has_conflicts(&self) -> bool {
+        self.items.iter().any(|item| matches!(item, CstTopLevelItem::ConflictBlock(_)))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CstTopLevelItem {
     Trivia(String),
     KeyValue(CstKeyValue),
     Table(CstTable),
+    ConflictBlock(CstConflictBlock),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CstConflictBlock {
+    pub raw: String,
+    pub ours_label: String,
+    pub ours_content: String,
+    pub base_content: Option<String>,
+    pub theirs_label: String,
+    pub theirs_content: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

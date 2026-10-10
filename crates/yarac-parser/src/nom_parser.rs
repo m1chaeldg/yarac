@@ -196,11 +196,71 @@ pub fn parse_table(input: &str) -> IResult<&str, CstTable> {
     ))
 }
 
+/// Parses git merge conflict blocks `<<<<<<< ... ======= ... >>>>>>> ...`
+pub fn parse_conflict_block(input: &str) -> IResult<&str, CstConflictBlock> {
+    let (after_ws, _) = space0(input)?;
+    if !after_ws.starts_with("<<<<<<<") {
+        return Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag)));
+    }
+
+    let start_idx = input.find("<<<<<<<").unwrap();
+    let rest_after_start = &input[start_idx..];
+
+    let eq_pos = rest_after_start.find("\n=======").or_else(|| rest_after_start.find("\r\n======="));
+    let gt_pos = rest_after_start.find("\n>>>>>>>").or_else(|| rest_after_start.find("\r\n>>>>>>>"));
+
+    if let (Some(eq_idx), Some(gt_idx)) = (eq_pos, gt_pos) {
+        if eq_idx < gt_idx {
+            let line_end = rest_after_start[gt_idx + 1..].find('\n')
+                .map(|p| gt_idx + 1 + p + 1)
+                .unwrap_or(rest_after_start.len());
+
+            let full_raw = &input[..start_idx + line_end];
+            let rem = &input[start_idx + line_end..];
+
+            let open_line = rest_after_start.lines().next().unwrap_or("");
+            let ours_label = open_line.trim_start_matches('<').trim().to_string();
+
+            let ours_start = open_line.len();
+            let ours_content = rest_after_start[ours_start..eq_idx].trim_start_matches(['\r', '\n']).to_string();
+
+            let close_line = rest_after_start[gt_idx + 1..line_end].lines().next().unwrap_or("");
+            let theirs_label = close_line.trim_start_matches('>').trim().to_string();
+
+            let eq_slice = &rest_after_start[eq_idx..];
+            let eq_line_end = eq_slice.find('\n').unwrap_or(0);
+            let theirs_start = eq_idx + eq_line_end + 1;
+            let theirs_content = if theirs_start <= gt_idx {
+                rest_after_start[theirs_start..gt_idx].to_string()
+            } else {
+                String::new()
+            };
+
+            return Ok((rem, CstConflictBlock {
+                raw: full_raw.to_string(),
+                ours_label,
+                ours_content,
+                base_content: None,
+                theirs_label,
+                theirs_content,
+            }));
+        }
+    }
+
+    Err(nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag)))
+}
+
 /// Parses a full document into a CstDocument
 pub fn parse_document(mut input: &str) -> Result<CstDocument, String> {
     let mut items = Vec::new();
 
     while !input.is_empty() {
+        if let Ok((rem, conflict)) = parse_conflict_block(input) {
+            items.push(CstTopLevelItem::ConflictBlock(conflict));
+            input = rem;
+            continue;
+        }
+
         if let Ok((rem, table)) = parse_table(input) {
             items.push(CstTopLevelItem::Table(table));
             input = rem;

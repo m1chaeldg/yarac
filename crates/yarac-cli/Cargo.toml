@@ -14,6 +14,7 @@ yarac-parser = { path = "../yarac-parser" }
 yarac-net = { path = "../yarac-net" }
 yarac-importer = { path = "../yarac-importer" }
 yarac-mcp = { path = "../yarac-mcp" }
+yarac-scripting = { path = "../yarac-scripting" }
 clap.workspace = true
 tokio.workspace = true
 serde.workspace = true
