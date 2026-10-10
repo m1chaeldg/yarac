@@ -1,5 +1,6 @@
 <script lang="ts">
   import { workspaceStore, type YaracRequest } from '../stores/workspace.svelte';
+  import { backendApi } from '../services/backendApi';
   import ContextMenu, { type ContextMenuItem } from './ContextMenu.svelte';
   import CodeGeneratorModal from './CodeGeneratorModal.svelte';
   import RequestInfoModal from './RequestInfoModal.svelte';
@@ -22,10 +23,13 @@
 
   // Context Menu & Modal States
   let contextMenu = $state<{ x: number; y: number; req: YaracRequest; col: any } | null>(null);
+  let colContextMenu = $state<{ x: number; y: number; col: any } | null>(null);
   let codeGenReq = $state<YaracRequest | null>(null);
   let infoReq = $state<{ req: YaracRequest; col: any } | null>(null);
   let renameReq = $state<{ req: YaracRequest; newName: string } | null>(null);
   let deleteReq = $state<YaracRequest | null>(null);
+  let renameCol = $state<{ col: any; newName: string } | null>(null);
+  let deleteCol = $state<any | null>(null);
   let toast = $state<{ text: string; icon: string } | null>(null);
 
   // Drag-and-Drop Reordering States
@@ -183,6 +187,60 @@
     deleteReq = null;
   }
 
+  function handleCommitRenameCol() {
+    if (!renameCol || !renameCol.newName.trim()) return;
+    workspaceStore.renameCollection(renameCol.col.id, renameCol.newName);
+    showToast(`Renamed collection to "${renameCol.newName.trim()}"`, '✏️');
+    renameCol = null;
+  }
+
+  function handleCommitDeleteCol() {
+    if (!deleteCol) return;
+    const name = deleteCol.name;
+    workspaceStore.deleteCollection(deleteCol.id);
+    showToast(`Deleted collection "${name}"`, '🗑️');
+    deleteCol = null;
+  }
+
+  function getColContextMenuItems(col: any): ContextMenuItem[] {
+    return [
+      {
+        id: 'new-req',
+        label: 'New Request',
+        icon: '➕',
+        action: () => {
+          handleCreateRequest(col.id);
+        }
+      },
+      {
+        id: 'reveal-col',
+        label: 'Reveal in Explorer',
+        icon: '📂',
+        action: async () => {
+          await backendApi.revealInExplorer({ collectionName: col.name });
+          showToast(`Revealed "${col.name}" in Explorer`, '📂');
+        }
+      },
+      { id: 'sep-col', label: '', separator: true, action: () => {} },
+      {
+        id: 'rename-col',
+        label: 'Rename Collection',
+        icon: '✏️',
+        action: () => {
+          renameCol = { col, newName: col.name };
+        }
+      },
+      {
+        id: 'delete-col',
+        label: 'Delete Collection',
+        icon: '🗑️',
+        action: () => {
+          deleteCol = col;
+        }
+      }
+    ];
+  }
+
   function getContextMenuItems(req: YaracRequest, col: any): ContextMenuItem[] {
     return [
       {
@@ -254,13 +312,8 @@
         label: 'Reveal in Explorer',
         icon: '📂',
         action: async () => {
-          const relPath = getRelativeRequestPath(col.name, req.name);
-          try {
-            await navigator.clipboard.writeText(relPath);
-            showToast(`Path copied: ${relPath}`, '📂');
-          } catch {
-            showToast(`File: ${relPath}`, '📂');
-          }
+          await backendApi.revealInExplorer({ collectionName: col.name, requestName: req.name });
+          showToast(`Revealed "${req.name}" in Explorer`, '📂');
         }
       },
       { id: 'sep1', label: '', separator: true, action: () => {} },
@@ -473,6 +526,15 @@
             ondragover={(e) => handleColHeaderDragOver(e, col.id)}
             ondrop={(e) => handleColHeaderDrop(e, col.id)}
             ondragend={handleDragEnd}
+            oncontextmenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              colContextMenu = {
+                x: e.clientX,
+                y: e.clientY,
+                col
+              };
+            }}
             class="flex items-center justify-between px-2 py-1 rounded transition-colors text-slate-300 font-semibold group cursor-grab active:cursor-grabbing select-none
               {draggedColId === col.id ? 'opacity-40 border border-dashed border-sky-400' : ''}
               {isColOver && dropPosition === 'inside' ? 'bg-sky-950/80 ring-1 ring-sky-400 text-sky-200' : 'hover:bg-slate-800/40'}
@@ -493,6 +555,18 @@
                 class="opacity-0 group-hover:opacity-100 text-[10px] text-sky-400 hover:text-sky-300 px-1 rounded hover:bg-slate-700"
               >
                 +req
+              </button>
+              <button
+                type="button"
+                title="Collection menu"
+                onclick={(e) => {
+                  e.stopPropagation();
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  colContextMenu = { x: rect.right, y: rect.bottom, col };
+                }}
+                class="opacity-0 group-hover:opacity-100 hover:text-white px-1 py-0.5 rounded text-[10px] text-slate-500 hover:bg-slate-700/60"
+              >
+                •••
               </button>
             </div>
           </div>
@@ -634,6 +708,15 @@
   />
 {/if}
 
+{#if colContextMenu}
+  <ContextMenu
+    x={colContextMenu.x}
+    y={colContextMenu.y}
+    items={getColContextMenuItems(colContextMenu.col)}
+    onClose={() => colContextMenu = null}
+  />
+{/if}
+
 <!-- Code Generator Modal -->
 <CodeGeneratorModal
   isOpen={Boolean(codeGenReq)}
@@ -743,6 +826,109 @@
         <button
           type="button"
           onclick={handleCommitDelete}
+          class="px-3 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-medium"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Rename Collection Dialog -->
+{#if renameCol}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+    onclick={() => renameCol = null}
+    role="presentation"
+  >
+    <div
+      class="bg-slate-900 border border-slate-700 rounded-xl p-4 w-80 shadow-2xl space-y-3"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+          <span>✏️</span>
+          <span>Rename Collection</span>
+        </h3>
+        <button
+          type="button"
+          onclick={() => renameCol = null}
+          class="text-slate-400 hover:text-slate-200 text-xs"
+        >
+          ✕
+        </button>
+      </div>
+
+      <input
+        type="text"
+        bind:value={renameCol.newName}
+        onkeydown={(e) => {
+          if (e.key === 'Enter') handleCommitRenameCol();
+          if (e.key === 'Escape') renameCol = null;
+        }}
+        class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
+      />
+
+      <div class="flex justify-end gap-2 text-xs">
+        <button
+          type="button"
+          onclick={() => renameCol = null}
+          class="px-2.5 py-1 rounded text-slate-400 hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onclick={handleCommitRenameCol}
+          class="px-3 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Delete Collection Confirmation Dialog -->
+{#if deleteCol}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+    onclick={() => deleteCol = null}
+    role="presentation"
+  >
+    <div
+      class="bg-slate-900 border border-rose-900/60 rounded-xl p-4 w-80 shadow-2xl space-y-3"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <div class="flex items-center gap-2 text-rose-400 text-xs font-bold">
+        <span>⚠️</span>
+        <span>Delete Collection</span>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        Are you sure you want to delete collection <span class="font-semibold text-slate-100">"{deleteCol.name}"</span>? All requests inside will be removed from disk.
+      </p>
+
+      <div class="flex justify-end gap-2 text-xs">
+        <button
+          type="button"
+          onclick={() => deleteCol = null}
+          class="px-2.5 py-1 rounded text-slate-400 hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onclick={handleCommitDeleteCol}
           class="px-3 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-medium"
         >
           Delete

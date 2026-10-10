@@ -620,7 +620,36 @@ export class WorkspaceStore {
       id: colId,
       name: name.trim() || 'New Collection'
     });
+    this.persistToDisk();
     return colId;
+  }
+
+  renameCollection(collectionId: string, newName: string): boolean {
+    const ws = this.currentWorkspace;
+    const col = ws.collections.find(c => c.id === collectionId);
+    if (!col) return false;
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    col.name = trimmed;
+    this.persistToDisk();
+    return true;
+  }
+
+  deleteCollection(collectionId: string): boolean {
+    const ws = this.currentWorkspace;
+    const colIdx = ws.collections.findIndex(c => c.id === collectionId);
+    if (colIdx === -1) return false;
+
+    // Remove requests belonging to this collection
+    const reqsToRemove = ws.requests.filter(r => r.collectionId === collectionId);
+    for (const req of reqsToRemove) {
+      this.closeTab(req.id);
+    }
+    ws.requests = ws.requests.filter(r => r.collectionId !== collectionId);
+    ws.collections.splice(colIdx, 1);
+
+    this.persistToDisk();
+    return true;
   }
 
   // Request actions
@@ -653,6 +682,7 @@ export class WorkspaceStore {
     newReq.dslContent = serializeToDsl(newReq);
     this.currentWorkspace.requests.push(newReq);
     this.openTab(reqId);
+    this.persistToDisk();
     return newReq;
   }
 
@@ -664,7 +694,8 @@ export class WorkspaceStore {
     if (!trimmed) return false;
     req.name = trimmed;
     req.dslContent = serializeToDsl(req);
-    req.isDirty = true;
+    req.isDirty = false;
+    this.persistToDisk();
     return true;
   }
 
@@ -696,6 +727,7 @@ export class WorkspaceStore {
       ws.requests.push(cloned);
     }
     this.openTab(reqId);
+    this.persistToDisk();
     return cloned;
   }
 
@@ -706,6 +738,7 @@ export class WorkspaceStore {
 
     ws.requests.splice(idx, 1);
     this.closeTab(requestId);
+    this.persistToDisk();
     return true;
   }
 

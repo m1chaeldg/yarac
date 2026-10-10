@@ -297,6 +297,23 @@ export const backendApi = {
   },
 
   /**
+   * Reveals a request file or collection folder in the OS native file explorer
+   */
+  async revealInExplorer(options: { collectionName?: string; requestName?: string; path?: string }): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE}/workspace/reveal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options)
+      });
+      return res.ok;
+    } catch (e) {
+      console.warn('revealInExplorer API call failed:', e);
+      return false;
+    }
+  },
+
+  /**
    * Subscribes to real-time file watcher events from the backend (SSE)
    */
   subscribeToWatcher(onEvent: (event: WatcherEvent) => void): () => void {

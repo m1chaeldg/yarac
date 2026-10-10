@@ -1,7 +1,7 @@
 use hdrhistogram::Histogram;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -79,6 +79,15 @@ pub struct WorkspaceRequestItem {
 pub struct WorkspaceSavePayload {
     pub manifest: WorkspaceManifest,
     pub requests: Vec<WorkspaceRequestItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WorkspaceRevealPayload {
+    #[serde(rename = "collectionName")]
+    pub collection_name: Option<String>,
+    #[serde(rename = "requestName")]
+    pub request_name: Option<String>,
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -222,6 +231,12 @@ Access-Control-Allow-Origin: *\r\n\r\n";
 
                 if method == "GET" && path == "/api/workspace" {
                     let res = server.handle_load_workspace().await;
+                    Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
+                    return;
+                }
+
+                if method == "POST" && path == "/api/workspace/reveal" {
+                    let res = server.handle_workspace_reveal(body).await;
                     Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
                     return;
                 }
@@ -458,6 +473,85 @@ Connection: close\r\n\r\n{}",
         })
     }
 
+    async fn handle_workspace_reveal(&self, body: &str) -> Value {
+        let payload: WorkspaceRevealPayload = match serde_json::from_str(body) {
+            Ok(p) => p,
+            Err(e) => return json!({ "error": format!("Invalid reveal payload: {}", e) }),
+        };
+
+        let target_path = if let Some(p) = payload.path {
+            let path = PathBuf::from(p);
+            if path.is_absolute() {
+                path
+            } else {
+                self.workspace_dir.join(path)
+            }
+        } else if let (Some(col), Some(req)) = (payload.collection_name.as_deref(), payload.request_name.as_deref()) {
+            let safe_col = col.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let safe_req = req.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let file_path = self.workspace_dir.join(&safe_col).join(format!("{}.yarac", safe_req));
+            if file_path.exists() {
+                file_path
+            } else {
+                self.workspace_dir.join(&safe_col)
+            }
+        } else if let Some(col) = payload.collection_name.as_deref() {
+            let safe_col = col.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let col_dir = self.workspace_dir.join(&safe_col);
+            let _ = std::fs::create_dir_all(&col_dir);
+            col_dir
+        } else {
+            self.workspace_dir.clone()
+        };
+
+        let canonical_ws = self.workspace_dir.canonicalize().unwrap_or_else(|_| self.workspace_dir.clone());
+        let canonical_target = target_path.canonicalize().unwrap_or_else(|_| target_path.clone());
+        if !canonical_target.starts_with(&canonical_ws) {
+            return json!({ "error": "Target path outside workspace directory" });
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            if canonical_target.is_file() {
+                let _ = std::process::Command::new("explorer")
+                    .arg(format!("/select,{}", canonical_target.display()))
+                    .spawn();
+            } else {
+                let _ = std::process::Command::new("explorer")
+                    .arg(&canonical_target)
+                    .spawn();
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            if canonical_target.is_file() {
+                let _ = std::process::Command::new("open")
+                    .arg("-R")
+                    .arg(&canonical_target)
+                    .spawn();
+            } else {
+                let _ = std::process::Command::new("open")
+                    .arg(&canonical_target)
+                    .spawn();
+            }
+        }
+
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        {
+            let open_target = if canonical_target.is_file() {
+                canonical_target.parent().unwrap_or(&canonical_target)
+            } else {
+                &canonical_target
+            };
+            let _ = std::process::Command::new("xdg-open")
+                .arg(open_target)
+                .spawn();
+        }
+
+        json!({ "status": "ok", "path": canonical_target.to_string_lossy() })
+    }
+
     async fn handle_save_workspace(&self, body: &str) -> Value {
         let payload: WorkspaceSavePayload = match serde_json::from_str(body) {
             Ok(p) => p,
@@ -469,11 +563,22 @@ Connection: close\r\n\r\n{}",
         // Save workspace.json manifest
         let manifest_path = self.workspace_dir.join("workspace.json");
         if let Some(w) = &self.watcher {
-            w.mark_self_write(&manifest_path, Duration::from_millis(1000));
+            w.mark_self_write(&manifest_path, Duration::from_millis(1500));
         }
         let manifest_json = serde_json::to_string_pretty(&payload.manifest).unwrap_or_default();
         if let Err(e) = std::fs::write(&manifest_path, manifest_json) {
             return json!({ "error": format!("Failed to write manifest: {}", e) });
+        }
+
+        let mut active_files = HashSet::new();
+        let mut active_cols = HashSet::new();
+
+        // Ensure collection directories exist
+        for col in &payload.manifest.collections {
+            let safe_col = col.name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let col_dir = self.workspace_dir.join(&safe_col);
+            let _ = std::fs::create_dir_all(&col_dir);
+            active_cols.insert(col_dir);
         }
 
         // Save each request to disk in collection folders
@@ -491,10 +596,12 @@ Connection: close\r\n\r\n{}",
 
             let col_dir = self.workspace_dir.join(&safe_col);
             let _ = std::fs::create_dir_all(&col_dir);
+            active_cols.insert(col_dir.clone());
 
             let req_path = col_dir.join(format!("{}.yarac", safe_name));
+            active_files.insert(req_path.clone());
             if let Some(w) = &self.watcher {
-                w.mark_self_write(&req_path, Duration::from_millis(1000));
+                w.mark_self_write(&req_path, Duration::from_millis(1500));
             }
 
             let dsl = if !item.dsl_content.trim().is_empty() {
@@ -507,7 +614,40 @@ Connection: close\r\n\r\n{}",
             let _ = std::fs::write(&req_path, dsl);
         }
 
+        // Clean up orphan .yarac files that were deleted or renamed
+        Self::clean_orphan_files(&self.workspace_dir, &active_files, &active_cols, self.watcher.as_deref());
+
         json!({ "status": "ok" })
+    }
+
+    fn clean_orphan_files(
+        dir: &Path,
+        active_files: &HashSet<PathBuf>,
+        active_cols: &HashSet<PathBuf>,
+        watcher: Option<&WorkspaceWatcher>,
+    ) {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    Self::clean_orphan_files(&path, active_files, active_cols, watcher);
+                    if !active_cols.contains(&path) {
+                        if let Ok(mut sub_entries) = std::fs::read_dir(&path) {
+                            if sub_entries.next().is_none() {
+                                let _ = std::fs::remove_dir(&path);
+                            }
+                        }
+                    }
+                } else if path.extension().and_then(|s| s.to_str()) == Some("yarac") {
+                    if !active_files.contains(&path) {
+                        if let Some(w) = watcher {
+                            w.mark_self_write(&path, Duration::from_millis(1500));
+                        }
+                        let _ = std::fs::remove_file(&path);
+                    }
+                }
+            }
+        }
     }
 
     fn scan_yarac_files(dir: &Path, out: &mut Vec<Value>) {

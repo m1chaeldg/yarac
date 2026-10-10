@@ -3,6 +3,8 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import child_process from 'node:child_process';
+
 function yaracWorkspacePlugin(): Plugin {
   const workspaceRoot = path.resolve(__dirname, '../workspace');
 
@@ -135,6 +137,74 @@ function yaracWorkspacePlugin(): Plugin {
           return;
         }
 
+        // POST /api/workspace/reveal
+        if (url === '/api/workspace/reveal' && req.method === 'POST') {
+          let bodyStr = '';
+          req.on('data', chunk => {
+            bodyStr += chunk;
+          });
+          req.on('end', () => {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+
+            try {
+              const payload = JSON.parse(bodyStr || '{}');
+              let targetPath = workspaceRoot;
+
+              if (payload.path) {
+                targetPath = path.isAbsolute(payload.path)
+                  ? payload.path
+                  : path.join(workspaceRoot, payload.path);
+              } else if (payload.collectionName && payload.requestName) {
+                const safeCol = (payload.collectionName || 'General').replace(/[/\\?%*:|"<>]/g, '_');
+                const safeReq = (payload.requestName || 'Request').replace(/[/\\?%*:|"<>]/g, '_');
+                targetPath = path.join(workspaceRoot, safeCol, `${safeReq}.yarac`);
+                if (!fs.existsSync(targetPath)) {
+                  targetPath = path.join(workspaceRoot, safeCol);
+                }
+              } else if (payload.collectionName) {
+                const safeCol = (payload.collectionName || 'General').replace(/[/\\?%*:|"<>]/g, '_');
+                targetPath = path.join(workspaceRoot, safeCol);
+                if (!fs.existsSync(targetPath)) {
+                  fs.mkdirSync(targetPath, { recursive: true });
+                }
+              }
+
+              const resolved = path.resolve(targetPath);
+              if (!resolved.startsWith(path.resolve(workspaceRoot))) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: 'Target path outside workspace root' }));
+                return;
+              }
+
+              if (process.platform === 'win32') {
+                if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
+                  child_process.exec(`explorer.exe /select,"${resolved}"`);
+                } else {
+                  child_process.exec(`explorer.exe "${resolved}"`);
+                }
+              } else if (process.platform === 'darwin') {
+                if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
+                  child_process.spawn('open', ['-R', resolved], { detached: true });
+                } else {
+                  child_process.spawn('open', [resolved], { detached: true });
+                }
+              } else {
+                const openTarget = fs.existsSync(resolved) && fs.statSync(resolved).isFile()
+                  ? path.dirname(resolved)
+                  : resolved;
+                child_process.spawn('xdg-open', [openTarget], { detached: true });
+              }
+
+              res.end(JSON.stringify({ status: 'ok', path: resolved }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+          return;
+        }
+
         // POST /api/workspace/save
         if (url === '/api/workspace/save' && req.method === 'POST') {
           let bodyStr = '';
@@ -153,6 +223,21 @@ function yaracWorkspacePlugin(): Plugin {
               selfWriteTimes.set(manifestPath, Date.now() + 1500);
               fs.writeFileSync(manifestPath, JSON.stringify(payload.manifest, null, 2), 'utf8');
 
+              const activeFilePaths = new Set<string>();
+              const activeColDirs = new Set<string>();
+
+              // Ensure collection folders exist for manifest collections
+              if (Array.isArray(payload.manifest?.collections)) {
+                for (const c of payload.manifest.collections) {
+                  const safeCol = (c.name || 'General').replace(/[/\\?%*:|"<>]/g, '_');
+                  const colDir = path.join(workspaceRoot, safeCol);
+                  if (!fs.existsSync(colDir)) {
+                    fs.mkdirSync(colDir, { recursive: true });
+                  }
+                  activeColDirs.add(colDir);
+                }
+              }
+
               // Write each request into collection folders
               if (Array.isArray(payload.requests)) {
                 for (const r of payload.requests) {
@@ -164,14 +249,45 @@ function yaracWorkspacePlugin(): Plugin {
                   if (!fs.existsSync(colDir)) {
                     fs.mkdirSync(colDir, { recursive: true });
                   }
+                  activeColDirs.add(colDir);
 
                   const filePath = path.join(colDir, `${safeReqName}.yarac`);
+                  activeFilePaths.add(filePath);
                   selfWriteTimes.set(filePath, Date.now() + 1500);
 
                   const content = r.dslContent || `version = "1.0"\nname = "${r.name}"\nmethod = "GET"\nurl = "http://localhost"\n`;
                   fs.writeFileSync(filePath, content, 'utf8');
                 }
               }
+
+              // Clean up orphan .yarac files that were deleted or renamed
+              function cleanDir(dir: string) {
+                if (!fs.existsSync(dir)) return;
+                const entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                  const full = path.join(dir, entry.name);
+                  if (entry.isDirectory()) {
+                    cleanDir(full);
+                    // If directory is not an active collection and is empty, remove it
+                    if (!activeColDirs.has(full)) {
+                      try {
+                        const remaining = fs.readdirSync(full);
+                        if (remaining.length === 0) {
+                          fs.rmdirSync(full);
+                        }
+                      } catch {}
+                    }
+                  } else if (entry.name.endsWith('.yarac')) {
+                    if (!activeFilePaths.has(full)) {
+                      selfWriteTimes.set(full, Date.now() + 1500);
+                      try {
+                        fs.unlinkSync(full);
+                      } catch {}
+                    }
+                  }
+                }
+              }
+              cleanDir(workspaceRoot);
 
               res.end(JSON.stringify({ status: 'ok' }));
             } catch (err: any) {

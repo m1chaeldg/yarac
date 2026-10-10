@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-10-10
+
+### Added
+- **File-System Synchronized Workspace & Explorer Integration**:
+  - **Immediate Disk Persistence**: Creating, duplicating, renaming, or deleting requests immediately synchronizes changes to disk as `.yarac` files in their respective collection directories with updated `workspace.json` manifest.
+  - **Collection Disk Synchronization**: Creating, renaming, or deleting collections automatically creates/updates/removes directories on disk.
+  - **Atomic File Reconciliation**: Saves clean up orphaned or renamed `.yarac` files and empty removed directories automatically with 1500ms watcher echo suppression.
+  - **Native Reveal in Explorer**: Integrated `POST /api/workspace/reveal` across Vite dev server and Rust daemon. Highlights files in Windows File Explorer (`explorer.exe /select`) or opens collection folders, with cross-platform macOS/Linux support.
+  - **Collection Actions Context Menu**: Added right-click context menu and hover action buttons for collections (New Request, Reveal in Explorer, Rename Collection, Delete Collection).
+
 ## [0.2.1] - 2026-10-10
 
 ### Added
