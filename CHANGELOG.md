@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2026-10-10
+
+### Added
+- **Collapsible Tree View & Collection Fold Management (`frontend/src/components/WorkspaceNav.svelte`)**:
+  - **Individual Expand / Collapse Toggles**: Interactive folder header clicking and dedicated rotating chevron buttons (`▶` / `▼`) to fold and unfold collection contents.
+  - **Expand All & Collapse All Controls**: Toolbar action buttons in the Collections header bar to expand or collapse all collections at once with animated status toasts.
+  - **Context Menu Integration**: Added "Expand/Collapse Collection", "Expand All", and "Collapse All" actions to the collection right-click menu.
+  - **Keyboard Navigation & Accessibility**: Added `aria-expanded` attributes and keyboard shortcuts (`Enter`/`Space` to toggle, `ArrowRight` to expand, `ArrowLeft` to collapse).
+  - **Context-Aware Auto-Expansion**: Automatically expands collapsed collections when adding a new request (`+req`) or dropping a dragged request into them.
+  - **Automated Verification**: Added comprehensive unit test suite (`frontend/src/utils/testCollapsibleTreeView.ts`) verifying state transitions and edge cases.
+
 ## [0.2.3] - 2026-10-10
 
 ### Added

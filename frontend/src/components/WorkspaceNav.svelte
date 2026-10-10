@@ -32,6 +32,31 @@
   let deleteCol = $state<any | null>(null);
   let toast = $state<{ text: string; icon: string } | null>(null);
 
+  // Collapsible Tree View States
+  let collapsedColIds = $state<Record<string, boolean>>({});
+
+  function isColCollapsed(colId: string): boolean {
+    return !!collapsedColIds[colId];
+  }
+
+  function toggleColCollapse(colId: string) {
+    collapsedColIds[colId] = !collapsedColIds[colId];
+  }
+
+  function expandAll() {
+    collapsedColIds = {};
+    showToast('Expanded all collections', '📂');
+  }
+
+  function collapseAll() {
+    const newMap: Record<string, boolean> = {};
+    for (const col of workspaceStore.currentWorkspace.collections) {
+      newMap[col.id] = true;
+    }
+    collapsedColIds = newMap;
+    showToast('Collapsed all collections', '📁');
+  }
+
   // Drag-and-Drop Reordering States
   let draggedReqId = $state<string | null>(null);
   let draggedColId = $state<string | null>(null);
@@ -120,6 +145,7 @@
 
     if (draggedReqId) {
       workspaceStore.moveRequestToCollection(draggedReqId, targetColId);
+      collapsedColIds[targetColId] = false;
       showToast('Moved into collection', '📁');
     } else if (draggedColId && draggedColId !== targetColId) {
       const cols = workspaceStore.currentWorkspace.collections;
@@ -168,6 +194,9 @@
   }
 
   function handleCreateRequest(collectionId: string) {
+    if (isColCollapsed(collectionId)) {
+      collapsedColIds[collectionId] = false;
+    }
     workspaceStore.createRequest(collectionId, 'New Request', 'GET');
     onSelectView('studio');
   }
@@ -197,12 +226,15 @@
   function handleCommitDeleteCol() {
     if (!deleteCol) return;
     const name = deleteCol.name;
-    workspaceStore.deleteCollection(deleteCol.id);
+    const id = deleteCol.id;
+    workspaceStore.deleteCollection(id);
+    delete collapsedColIds[id];
     showToast(`Deleted collection "${name}"`, '🗑️');
     deleteCol = null;
   }
 
   function getColContextMenuItems(col: any): ContextMenuItem[] {
+    const isCollapsed = isColCollapsed(col.id);
     return [
       {
         id: 'new-req',
@@ -212,6 +244,31 @@
           handleCreateRequest(col.id);
         }
       },
+      {
+        id: 'toggle-collapse',
+        label: isCollapsed ? 'Expand Collection' : 'Collapse Collection',
+        icon: isCollapsed ? '📂' : '📁',
+        action: () => {
+          toggleColCollapse(col.id);
+        }
+      },
+      {
+        id: 'expand-all',
+        label: 'Expand All',
+        icon: '⏬',
+        action: () => {
+          expandAll();
+        }
+      },
+      {
+        id: 'collapse-all',
+        label: 'Collapse All',
+        icon: '⏫',
+        action: () => {
+          collapseAll();
+        }
+      },
+      { id: 'sep-collapse', label: '', separator: true, action: () => {} },
       {
         id: 'reveal-col',
         label: 'Reveal in Explorer',
@@ -477,13 +534,40 @@
     <div class="flex-1 overflow-y-auto p-2 space-y-3">
       <div class="flex items-center justify-between px-1">
         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Collections</span>
-        <button
-          type="button"
-          onclick={() => isAddingCollection = !isAddingCollection}
-          class="text-[10px] text-sky-400 hover:text-sky-300 font-medium font-mono"
-        >
-          +folder
-        </button>
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            title="Expand All Collections"
+            aria-label="Expand All Collections"
+            onclick={expandAll}
+            class="p-0.5 rounded text-slate-400 hover:text-sky-300 hover:bg-slate-800 transition-colors"
+          >
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="7 13 12 18 17 13"></polyline>
+              <polyline points="7 6 12 11 17 6"></polyline>
+            </svg>
+          </button>
+          <button
+            type="button"
+            title="Collapse All Collections"
+            aria-label="Collapse All Collections"
+            onclick={collapseAll}
+            class="p-0.5 rounded text-slate-400 hover:text-sky-300 hover:bg-slate-800 transition-colors"
+          >
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="17 11 12 6 7 11"></polyline>
+              <polyline points="17 18 12 13 7 18"></polyline>
+            </svg>
+          </button>
+          <button
+            type="button"
+            onclick={() => isAddingCollection = !isAddingCollection}
+            class="text-[10px] text-sky-400 hover:text-sky-300 font-medium font-mono px-1 py-0.5 rounded hover:bg-slate-800"
+            title="Add Collection"
+          >
+            +folder
+          </button>
+        </div>
       </div>
 
       {#if isAddingCollection}
@@ -516,16 +600,35 @@
       {#each workspaceStore.currentWorkspace.collections as col, colIdx (col.id)}
         {@const colRequests = workspaceStore.currentWorkspace.requests.filter(r => r.collectionId === col.id)}
         {@const isColOver = dragOverColId === col.id}
+        {@const collapsed = isColCollapsed(col.id)}
         <div class="space-y-0.5">
           <!-- Folder Header with Drag and Drop -->
           <div
             role="button"
             tabindex="0"
+            aria-expanded={!collapsed}
             draggable="true"
             ondragstart={(e) => handleColHeaderDragStart(e, col.id)}
             ondragover={(e) => handleColHeaderDragOver(e, col.id)}
             ondrop={(e) => handleColHeaderDrop(e, col.id)}
             ondragend={handleDragEnd}
+            onclick={() => toggleColCollapse(col.id)}
+            onkeydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleColCollapse(col.id);
+              } else if (e.key === 'ArrowRight') {
+                if (collapsed) {
+                  e.preventDefault();
+                  toggleColCollapse(col.id);
+                }
+              } else if (e.key === 'ArrowLeft') {
+                if (!collapsed) {
+                  e.preventDefault();
+                  toggleColCollapse(col.id);
+                }
+              }
+            }}
             oncontextmenu={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -535,15 +638,33 @@
                 col
               };
             }}
-            class="flex items-center justify-between px-2 py-1 rounded transition-colors text-slate-300 font-semibold group cursor-grab active:cursor-grabbing select-none
+            class="flex items-center justify-between px-2 py-1 rounded transition-colors text-slate-300 font-semibold group cursor-pointer select-none
               {draggedColId === col.id ? 'opacity-40 border border-dashed border-sky-400' : ''}
               {isColOver && dropPosition === 'inside' ? 'bg-sky-950/80 ring-1 ring-sky-400 text-sky-200' : 'hover:bg-slate-800/40'}
               {isColOver && dropPosition === 'before' ? 'border-t-2 border-sky-400' : ''}
               {isColOver && dropPosition === 'after' ? 'border-b-2 border-sky-400' : ''}"
           >
-            <div class="flex items-center gap-1.5 truncate">
-              <span class="text-slate-500 opacity-40 group-hover:opacity-100 text-[10px]">⋮⋮</span>
-              <span class="text-amber-400 text-xs">📁</span>
+            <div class="flex items-center gap-1 truncate">
+              <span
+                class="text-slate-500 opacity-40 group-hover:opacity-100 text-[10px] cursor-grab active:cursor-grabbing"
+                title="Drag to reorder"
+                onclick={(e) => e.stopPropagation()}
+                role="presentation"
+              >⋮⋮</span>
+              <button
+                type="button"
+                aria-label={collapsed ? `Expand ${col.name}` : `Collapse ${col.name}`}
+                onclick={(e) => {
+                  e.stopPropagation();
+                  toggleColCollapse(col.id);
+                }}
+                class="w-3.5 h-3.5 flex items-center justify-center text-slate-400 hover:text-slate-100 transition-transform duration-150 {collapsed ? '' : 'rotate-90'}"
+              >
+                <svg class="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </button>
+              <span class="text-amber-400 text-xs">{collapsed ? '📁' : '📂'}</span>
               <span class="truncate">{col.name}</span>
             </div>
             <div class="flex items-center gap-1">
@@ -572,86 +693,88 @@
           </div>
 
           <!-- Requests in this collection -->
-          <div class="pl-3 space-y-0.5">
-            {#each colRequests as req, reqIdx (req.id)}
-              {@const isCurrent = workspaceStore.currentWorkspace.activeTabId === req.id}
-              {@const isReqOver = dragOverReqId === req.id}
-              {@const isReqDragged = draggedReqId === req.id}
-              <div
-                role="button"
-                tabindex="0"
-                draggable="true"
-                ondragstart={(e) => handleReqDragStart(e, req.id)}
-                ondragover={(e) => handleReqDragOver(e, req.id)}
-                ondrop={(e) => handleReqDrop(e, req, col.id)}
-                ondragend={handleDragEnd}
-                onclick={() => {
-                  workspaceStore.openTab(req.id);
-                  onSelectView('studio');
-                }}
-                onkeydown={(e) => {
-                  if (e.key === 'Enter') {
+          {#if !collapsed}
+            <div class="pl-3 space-y-0.5">
+              {#each colRequests as req, reqIdx (req.id)}
+                {@const isCurrent = workspaceStore.currentWorkspace.activeTabId === req.id}
+                {@const isReqOver = dragOverReqId === req.id}
+                {@const isReqDragged = draggedReqId === req.id}
+                <div
+                  role="button"
+                  tabindex="0"
+                  draggable="true"
+                  ondragstart={(e) => handleReqDragStart(e, req.id)}
+                  ondragover={(e) => handleReqDragOver(e, req.id)}
+                  ondrop={(e) => handleReqDrop(e, req, col.id)}
+                  ondragend={handleDragEnd}
+                  onclick={() => {
                     workspaceStore.openTab(req.id);
                     onSelectView('studio');
-                  } else if (e.key === 'F2') {
-                    renameReq = { req, newName: req.name };
-                  } else if (e.key === 'Delete') {
-                    deleteReq = req;
-                  } else if (e.altKey && e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    if (reqIdx > 0) {
-                      workspaceStore.reorderRequests(col.id, reqIdx, reqIdx - 1);
-                      showToast('Moved request up', '⬆️');
-                    }
-                  } else if (e.altKey && e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    if (reqIdx < colRequests.length - 1) {
-                      workspaceStore.reorderRequests(col.id, reqIdx, reqIdx + 1);
-                      showToast('Moved request down', '⬇️');
-                    }
-                  }
-                }}
-                oncontextmenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  contextMenu = {
-                    x: e.clientX,
-                    y: e.clientY,
-                    req,
-                    col
-                  };
-                }}
-                class="px-2 py-1.5 rounded flex items-center justify-between group cursor-grab active:cursor-grabbing transition-all text-xs select-none
-                  {isReqDragged ? 'opacity-30 border border-dashed border-sky-400 bg-sky-950/20' : ''}
-                  {isReqOver && dropPosition === 'before' ? 'border-t-2 border-sky-400' : ''}
-                  {isReqOver && dropPosition === 'after' ? 'border-b-2 border-sky-400' : ''}
-                  {isCurrent
-                    ? 'bg-sky-950/60 text-sky-300 font-medium border border-sky-800/40'
-                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'}"
-              >
-                <div class="flex items-center gap-1.5 truncate">
-                  <span class="text-slate-600 opacity-20 group-hover:opacity-80 text-[10px]">⋮⋮</span>
-                  <span class="text-[9px] font-bold font-mono uppercase {getMethodColor(req.method)}">
-                    {req.method}
-                  </span>
-                  <span class="truncate">{req.name}</span>
-                </div>
-
-                <button
-                  type="button"
-                  title="Request menu"
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    contextMenu = { x: rect.right, y: rect.bottom, req, col };
                   }}
-                  class="opacity-0 group-hover:opacity-100 hover:text-white px-1 py-0.5 rounded text-[10px] text-slate-500 hover:bg-slate-700/60"
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter') {
+                      workspaceStore.openTab(req.id);
+                      onSelectView('studio');
+                    } else if (e.key === 'F2') {
+                      renameReq = { req, newName: req.name };
+                    } else if (e.key === 'Delete') {
+                      deleteReq = req;
+                    } else if (e.altKey && e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      if (reqIdx > 0) {
+                        workspaceStore.reorderRequests(col.id, reqIdx, reqIdx - 1);
+                        showToast('Moved request up', '⬆️');
+                      }
+                    } else if (e.altKey && e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      if (reqIdx < colRequests.length - 1) {
+                        workspaceStore.reorderRequests(col.id, reqIdx, reqIdx + 1);
+                        showToast('Moved request down', '⬇️');
+                      }
+                    }
+                  }}
+                  oncontextmenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    contextMenu = {
+                      x: e.clientX,
+                      y: e.clientY,
+                      req,
+                      col
+                    };
+                  }}
+                  class="px-2 py-1.5 rounded flex items-center justify-between group cursor-grab active:cursor-grabbing transition-all text-xs select-none
+                    {isReqDragged ? 'opacity-30 border border-dashed border-sky-400 bg-sky-950/20' : ''}
+                    {isReqOver && dropPosition === 'before' ? 'border-t-2 border-sky-400' : ''}
+                    {isReqOver && dropPosition === 'after' ? 'border-b-2 border-sky-400' : ''}
+                    {isCurrent
+                      ? 'bg-sky-950/60 text-sky-300 font-medium border border-sky-800/40'
+                      : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'}"
                 >
-                  •••
-                </button>
-              </div>
-            {/each}
-          </div>
+                  <div class="flex items-center gap-1.5 truncate">
+                    <span class="text-slate-600 opacity-20 group-hover:opacity-80 text-[10px]">⋮⋮</span>
+                    <span class="text-[9px] font-bold font-mono uppercase {getMethodColor(req.method)}">
+                      {req.method}
+                    </span>
+                    <span class="truncate">{req.name}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    title="Request menu"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      contextMenu = { x: rect.right, y: rect.bottom, req, col };
+                    }}
+                    class="opacity-0 group-hover:opacity-100 hover:text-white px-1 py-0.5 rounded text-[10px] text-slate-500 hover:bg-slate-700/60"
+                  >
+                    •••
+                  </button>
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
