@@ -1,0 +1,77 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Frontend: Chrome (Live Reload)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend",
+      "sourceMaps": true,
+      "preLaunchTask": "start-frontend-dev",
+      "smartStep": true,
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "sourceMapPathOverrides": {
+        "/src/*": "${workspaceFolder}/frontend/src/*",
+        "/*": "${workspaceFolder}/frontend/*"
+      }
+    },
+    {
+      "name": "Frontend: Edge (Live Reload)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend",
+      "sourceMaps": true,
+      "preLaunchTask": "start-frontend-dev",
+      "smartStep": true,
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "sourceMapPathOverrides": {
+        "/src/*": "${workspaceFolder}/frontend/src/*",
+        "/*": "${workspaceFolder}/frontend/*"
+      }
+    },
+    {
+      "name": "Frontend: Attach to Browser (Port 9222)",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "url": "http://localhost:5173/*",
+      "webRoot": "${workspaceFolder}/frontend",
+      "sourceMaps": true
+    },
+    {
+      "name": "Backend: Debug yarac-cli (CodeLLDB)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/yarac-cli.exe",
+      "args": ["run", "${workspaceFolder}/collections"],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build-yarac-cli"
+    },
+    {
+      "name": "Backend: Debug yarac-cli (MSVC C/C++)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/yarac-cli.exe",
+      "args": ["run", "${workspaceFolder}/collections"],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build-yarac-cli"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack: Chrome + yarac-cli (CodeLLDB)",
+      "configurations": [
+        "Frontend: Chrome (Live Reload)",
+        "Backend: Debug yarac-cli (CodeLLDB)"
+      ]
+    }
+  ]
+}

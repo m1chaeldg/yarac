@@ -170,7 +170,7 @@
                 <input
                   type="text"
                   bind:value={activeReq.url}
-                  placeholder="Enter request URL or {{base_url}}/path..."
+                  placeholder={'Enter request URL or {{base_url}}/path...'}
                   oninput={() => workspaceStore.updateActiveRequest({ url: activeReq?.url })}
                   class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-sky-500"
                 />
