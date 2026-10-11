@@ -117,6 +117,7 @@ impl YaracHttpClient {
             }
         }
 
+        let has_content_type = headers.contains_key(reqwest::header::CONTENT_TYPE);
         req_builder = req_builder.headers(headers);
 
         // Query parameters
@@ -128,19 +129,22 @@ impl YaracHttpClient {
         match &request.body {
             BodyType::None => {}
             BodyType::Json(json_str) => {
-                req_builder = req_builder
-                    .header(reqwest::header::CONTENT_TYPE, "application/json")
-                    .body(json_str.clone());
+                if !has_content_type {
+                    req_builder = req_builder.header(reqwest::header::CONTENT_TYPE, "application/json");
+                }
+                req_builder = req_builder.body(json_str.clone());
             }
             BodyType::Xml(xml_str) => {
-                req_builder = req_builder
-                    .header(reqwest::header::CONTENT_TYPE, "application/xml")
-                    .body(xml_str.clone());
+                if !has_content_type {
+                    req_builder = req_builder.header(reqwest::header::CONTENT_TYPE, "application/xml");
+                }
+                req_builder = req_builder.body(xml_str.clone());
             }
             BodyType::Text(text_str) => {
-                req_builder = req_builder
-                    .header(reqwest::header::CONTENT_TYPE, "text/plain")
-                    .body(text_str.clone());
+                if !has_content_type {
+                    req_builder = req_builder.header(reqwest::header::CONTENT_TYPE, "text/plain");
+                }
+                req_builder = req_builder.body(text_str.clone());
             }
             BodyType::Raw { content, content_type } => {
                 if let Some(ct) = content_type {

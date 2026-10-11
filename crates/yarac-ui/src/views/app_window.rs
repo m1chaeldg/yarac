@@ -1,5 +1,6 @@
 use gpui::*;
 use crate::theme::Theme;
+use crate::state::app_controller::AppController;
 use super::sidebar::Sidebar;
 use super::editor_pane::EditorPane;
 use super::response_pane::ResponsePane;
@@ -16,6 +17,7 @@ pub enum ActiveTab {
 pub struct AppWindow {
     pub active_tab: ActiveTab,
     pub theme: Theme,
+    pub controller: Entity<AppController>,
     pub sidebar: Entity<Sidebar>,
     pub editor_pane: Entity<EditorPane>,
     pub response_pane: Entity<ResponsePane>,
@@ -27,16 +29,18 @@ pub struct AppWindow {
 
 impl AppWindow {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let controller = cx.new(|_| AppController::new());
         Self {
             active_tab: ActiveTab::Studio,
             theme: Theme::apple_default(),
-            sidebar: cx.new(|_| Sidebar::new()),
-            editor_pane: cx.new(|_| EditorPane::new()),
-            response_pane: cx.new(|_| ResponsePane::new()),
-            runner_view: cx.new(|_| RunnerView::new()),
+            sidebar: cx.new(|_| Sidebar::new(controller.clone())),
+            editor_pane: cx.new(|_| EditorPane::new(controller.clone())),
+            response_pane: cx.new(|_| ResponsePane::new(controller.clone())),
+            runner_view: cx.new(|_| RunnerView::new(controller.clone())),
             env_modal: cx.new(|_| EnvModal::new()),
             interop_modal: cx.new(|_| InteropModal::new()),
             conflict_modal: cx.new(|_| ConflictModal::new()),
+            controller,
         }
     }
 }
