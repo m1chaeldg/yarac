@@ -284,6 +284,7 @@ export const backendApi = {
           requests: requests.map(r => ({
             id: r.id,
             collectionId: r.collectionId,
+            folderPath: r.folderPath,
             name: r.name,
             dslContent: r.dslContent
           }))

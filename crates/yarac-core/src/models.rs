@@ -258,6 +258,10 @@ pub struct CollectionMeta {
     pub id: String,
     pub name: String,
     #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub parent_id: Option<String>,
+    #[serde(default)]
     pub request_files: Vec<String>,
 }
 
