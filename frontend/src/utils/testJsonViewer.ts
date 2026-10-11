@@ -7,7 +7,7 @@ import {
   getContainerSummary
 } from './jsonUtils';
 
-console.log('--- RUNNING RIGOROUS UNIT TESTS FOR JSON UTILS & VIEWER LOGIC ---');
+console.log('--- RUNNING RIGOROUS UNIT TESTS FOR UNIFIED JSON VIEWER & UTILS ---');
 
 // 1. JSON Validity Detection
 console.assert(isValidJson('{"name": "Alice"}') === true, 'Valid json object should pass');
@@ -27,9 +27,7 @@ const formatted = formatJsonString(unformatted, 2);
 console.assert(formatted.includes('\n'), 'Formatted json should have newlines');
 console.assert(formatted.includes('  "id": 1'), 'Formatted json should have 2-space indentation');
 console.assert(JSON.parse(formatted).id === 1, 'Formatted json should parse faithfully');
-// Idempotency: formatting already formatted JSON should be unchanged
 console.assert(formatJsonString(formatted, 2) === formatted, 'formatJsonString is idempotent');
-// Invalid fallback: returns original string on failure without throwing
 console.assert(formatJsonString('bad json') === 'bad json', 'Invalid JSON returns raw input');
 console.log('✓ [PASS] formatJsonString formatting, idempotency, and fallbacks verified');
 
@@ -50,13 +48,18 @@ const pretty = `
 const minified = compressJsonString(pretty);
 console.assert(!minified.includes('\n'), 'Compressed json should not contain newlines');
 console.assert(minified === '{"id":1,"user":{"name":"John","active":true},"tags":["admin","dev"]}', 'Compressed json matches exact minified output');
-// Idempotency
 console.assert(compressJsonString(minified) === minified, 'compressJsonString is idempotent');
-// Invalid fallback
 console.assert(compressJsonString('{bad}') === '{bad}', 'compressJsonString fallback on invalid syntax');
 console.log('✓ [PASS] compressJsonString compression, idempotency, and fallbacks verified');
 
-// 4. getJsonType Type Inference
+// 4. Combined Action Pipeline: Format -> Compress -> Format
+const cycledMinified = compressJsonString(formatted);
+console.assert(cycledMinified === unformatted, 'Compressing formatted JSON produces clean compact JSON');
+const cycledFormatted = formatJsonString(cycledMinified, 2);
+console.assert(cycledFormatted === formatted, 'Re-formatting compressed JSON matches original formatted JSON');
+console.log('✓ [PASS] Combined Format <-> Compress roundtrip cycle verified');
+
+// 5. getJsonType Type Inference
 console.assert(getJsonType('hello') === 'string', 'String type check');
 console.assert(getJsonType(123) === 'number', 'Number type check');
 console.assert(getJsonType(true) === 'boolean', 'Boolean true check');
@@ -67,14 +70,14 @@ console.assert(getJsonType({ a: 1 }) === 'object', 'Object type check');
 console.assert(getJsonType(undefined) === 'string', 'Undefined fallback');
 console.log('✓ [PASS] getJsonType type categorization verified');
 
-// 5. formatPrimitiveValue Rendering
+// 6. formatPrimitiveValue Rendering
 console.assert(formatPrimitiveValue('test string', 'string') === '"test string"', 'String should be quoted');
 console.assert(formatPrimitiveValue(42, 'number') === '42', 'Number as string');
 console.assert(formatPrimitiveValue(true, 'boolean') === 'true', 'Boolean as string');
 console.assert(formatPrimitiveValue(null, 'null') === 'null', 'Null as string');
 console.log('✓ [PASS] formatPrimitiveValue primitives formatting verified');
 
-// 6. getContainerSummary Item/Key Counts
+// 7. getContainerSummary Item/Key Counts
 console.assert(getContainerSummary([1, 2, 3], 'array') === '3 items', 'Array plural count');
 console.assert(getContainerSummary(['only'], 'array') === '1 item', 'Array singular count');
 console.assert(getContainerSummary([], 'array') === '0 items', 'Empty array count');
@@ -83,7 +86,7 @@ console.assert(getContainerSummary({ a: 1 }, 'object') === '1 key', 'Object sing
 console.assert(getContainerSummary({}, 'object') === '0 keys', 'Empty object count');
 console.log('✓ [PASS] getContainerSummary counts verified');
 
-// 7. Tree Broadcast Expand/Collapse Synchronization Logic
+// 8. Tree Broadcast Expand/Collapse Synchronization Logic
 let expandVersion = 0;
 let collapseVersion = 0;
 let nodeExpanded = true;
