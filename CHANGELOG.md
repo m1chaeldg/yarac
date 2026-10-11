@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.4.0] - 2026-10-11
+
+### Added
+- **Native GPU-Accelerated UI with Zed GPUI (`crates/yarac-ui`)**:
+  - Replaced the Tauri v2 + Web frontend skeleton with a 100% native Rust GUI engine using Zed's `gpui` crate.
+  - Ultra-low memory footprint (<100MB RAM runtime target) with zero Chromium/WebKit overhead.
+  - Strict compliance with `frontend/DESIGN.md`:
+    - Full color palette adherence: Action Blue (`#0066cc`), Focus Blue (`#0071e3`), Sky Link Blue (`#2997ff`), Parchment (`#f5f5f7`), and Pearl (`#fafafc`).
+    - Pill radii (`9999px`), Utility cards (`18px`), and Utility buttons (`8px`).
+    - Method badge colors for GET, POST, PUT, DELETE, PATCH, and HEAD.
+  - Interactive components and views:
+    - `Sidebar`: Collections, folders, and request trees.
+    - `EditorPane`: Method dropdown, URL pill input, send action button.
+    - `ResponsePane`: Status code pills, latency metrics, response payload sizes.
+    - `RunnerView`: Multi-request collection runner with HDR histogram percentile tracking (`p50`, `p90`, `p95`, `p99`).
+    - Modals: Environment management, 3-way conflict resolver, and OpenAPI/Bruno/Postman interop.
+  - Test-Driven Development (TDD) unit test suites:
+    - `theme_tests.rs`: Verifies design token mapping and method colors.
+    - `state_tests.rs`: Verifies workspace tree, request dirty tracking, DSL sync, and environment interpolation.
+    - `runner_tests.rs`: Verifies runner state and percentile aggregations.
+
 ## [0.3.4] - 2026-10-11
 
 ### Added

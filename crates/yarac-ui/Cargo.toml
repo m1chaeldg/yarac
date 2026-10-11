@@ -1,0 +1,31 @@
+[package]
+name = "yarac-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "yarac-ui"
+path = "src/main.rs"
+
+[lib]
+name = "yarac_ui"
+path = "src/lib.rs"
+
+[dependencies]
+yarac-core = { path = "../yarac-core" }
+yarac-parser = { path = "../yarac-parser" }
+yarac-net = { path = "../yarac-net" }
+yarac-importer = { path = "../yarac-importer" }
+yarac-scripting = { path = "../yarac-scripting" }
+gpui = "0.2"
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+indexmap.workspace = true
+chrono.workspace = true
+hdrhistogram.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+pretty_assertions = "1.4"
