@@ -46,6 +46,23 @@
       "webRoot": "${workspaceFolder}/frontend",
       "sourceMaps": true
     },
+    {
+      "name": "UI: Debug yarac-ui (CodeLLDB)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/yarac-ui.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build-yarac-ui"
+    },
+    {
+      "name": "UI: Debug yarac-ui (MSVC C/C++)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/yarac-ui.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build-yarac-ui"
     },
     {
       "name": "Backend: Debug yarac-cli Run (CodeLLDB)",

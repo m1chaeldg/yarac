@@ -47,6 +47,16 @@
       "problemMatcher": ["$rustc"]
     },
     {
+      "label": "build-yarac-ui",
+      "type": "shell",
+      "command": "cargo build -p yarac-ui",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "problemMatcher": ["$rustc"]
+    },
+    {
       "label": "test-workspace",
       "type": "shell",
       "command": "cargo test --workspace",
