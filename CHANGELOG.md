@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-10-10
+
+### Refactored
+- **Architectural Modularization & Strict Test-Driven Development (TDD)**:
+  - **`VisualEditor.svelte`**: Decomposed 1,875-line monolithic editor into clean coordinator (< 200 lines) and isolated subcomponents under `src/components/editor/`: `ParamsTab.svelte`, `HeadersTab.svelte`, `VariablesTab.svelte`, `AuthTab.svelte`, `BodyTab.svelte`, `ScriptsTab.svelte`, `AssertTab.svelte`, `TestsTab.svelte`, and `SettingsTab.svelte`.
+  - **`ResponseViewer.svelte`**: Decomposed 927-line monolithic viewer into clean coordinator (< 280 lines) and isolated subcomponents under `src/components/response/`: `ResponseTableViewer.svelte`, `ResponseHeadersTab.svelte`, `ResponseTestsTab.svelte`, `ResponseTimelineTab.svelte`, and `ResponseVisualizer.svelte`.
+  - **Code Generators (`codeGenerators.ts`)**: Modularized 653-line monolith into dedicated per-language generators under `src/utils/generators/` (`curl.ts`, `python.ts`, `javascript.ts`, `go.ts`, `rust.ts`, `csharp.ts`, `powershell.ts`, `shell.ts`, `php.ts`, `ruby.ts`, `java.ts`, and `resolvers.ts`), preserving backward compatibility through a facade re-export.
+  - **`yarac-importer` Crate**: Modularized 1,095-line monolith into dedicated domain modules: `serializer.rs`, `postman.rs`, `bruno.rs`, and `openapi.rs`, with a 35-line facade in `lib.rs`.
+  - **`yarac-scripting` Crate**: Extracted 300+ line embedded JavaScript runtime prelude into dedicated `src/prelude.js` using compile-time `include_str!`.
+  - **Unit Test Coverage**: Enforced strict TDD across all refactored modules with zero drift:
+    - Frontend unit test suites: `testXmlUtils.ts`, `testResponseUtils.ts`, `testResponseMetrics.ts`, `testGeneratorsModular.ts`, `testCodeGenerators.ts`, `testStatusUtils.ts`, `testEditorState.ts`, `testEditorScriptsSettings.ts`.
+    - Rust integration test suite: `modular_importer_test.rs`.
+
 ## [0.3.2] - 2026-10-10
 
 ### Added
