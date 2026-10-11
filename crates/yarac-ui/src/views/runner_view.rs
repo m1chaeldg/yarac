@@ -21,6 +21,40 @@ impl Render for RunnerView {
         let app = self.controller.read(cx);
         let stats = app.runner.compute_stats();
 
+        let controller = self.controller.clone();
+        let requests: Vec<_> = app.workspace.collections.iter()
+            .flat_map(|c| c.requests.clone())
+            .collect();
+
+        let run_btn = div()
+            .id("btn-run-collection")
+            .px_4()
+            .py_1()
+            .cursor_pointer()
+            .rounded(px(self.theme.radii.pill))
+            .bg(rgb(0x0066cc))
+            .text_color(rgb(0xffffff))
+            .text_sm()
+            .font_weight(FontWeight::MEDIUM)
+            .child("Run Collection")
+            .on_click(move |_event, _window, cx| {
+                let reqs = requests.clone();
+                let ctrl = controller.clone();
+                cx.spawn(move |cx: &mut AsyncApp| {
+                    let mut cx = cx.clone();
+                    async move {
+                        let ctrl_val: Result<AppController, _> = ctrl.read_with(&cx, |c: &AppController, _cx| c.clone());
+                        if let Ok(mut c) = ctrl_val {
+                            let _ = c.execute_collection_runner(&reqs, 1).await;
+                            let _ = ctrl.update(&mut cx, |actual_c: &mut AppController, cx| {
+                                actual_c.runner = c.runner;
+                                cx.notify();
+                            });
+                        }
+                    }
+                }).detach();
+            });
+
         div()
             .flex()
             .flex_col()
@@ -41,17 +75,7 @@ impl Render for RunnerView {
                             .text_color(rgb(0x1d1d1f))
                             .child("Collection Runner")
                     )
-                    .child(
-                        div()
-                            .px_4()
-                            .py_1()
-                            .rounded(px(self.theme.radii.pill))
-                            .bg(rgb(0x0066cc))
-                            .text_color(rgb(0xffffff))
-                            .text_sm()
-                            .font_weight(FontWeight::MEDIUM)
-                            .child("Run Collection")
-                    )
+                    .child(run_btn)
             )
             .child(
                 // Metrics Cards

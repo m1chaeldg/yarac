@@ -46,7 +46,50 @@ impl AppWindow {
 }
 
 impl Render for AppWindow {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let is_studio = matches!(self.active_tab, ActiveTab::Studio);
+        let is_runner = matches!(self.active_tab, ActiveTab::Runner);
+
+        let nav_studio = div()
+            .id("nav-tab-studio")
+            .text_xs()
+            .cursor_pointer()
+            .text_color(if is_studio { rgb(0xffffff) } else { rgb(0x8e8e93) })
+            .font_weight(if is_studio { FontWeight::BOLD } else { FontWeight::NORMAL })
+            .child("Studio")
+            .on_click(cx.listener(|this, _event, _window, cx| {
+                this.active_tab = ActiveTab::Studio;
+                cx.notify();
+            }));
+
+        let nav_runner = div()
+            .id("nav-tab-runner")
+            .text_xs()
+            .cursor_pointer()
+            .text_color(if is_runner { rgb(0xffffff) } else { rgb(0x8e8e93) })
+            .font_weight(if is_runner { FontWeight::BOLD } else { FontWeight::NORMAL })
+            .child("Runner")
+            .on_click(cx.listener(|this, _event, _window, cx| {
+                this.active_tab = ActiveTab::Runner;
+                cx.notify();
+            }));
+
+        let main_content = if is_runner {
+            div()
+                .flex()
+                .flex_1()
+                .h_full()
+                .child(self.runner_view.clone())
+        } else {
+            div()
+                .flex()
+                .flex_1()
+                .h_full()
+                .child(self.sidebar.clone())
+                .child(self.editor_pane.clone())
+                .child(self.response_pane.clone())
+        };
+
         div()
             .flex()
             .flex_col()
@@ -73,29 +116,10 @@ impl Render for AppWindow {
                                     .text_sm()
                                     .child("Yarac")
                             )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(rgb(0xcccccc))
-                                    .child("Studio")
-                            )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(rgb(0xcccccc))
-                                    .child("Runner")
-                            )
+                            .child(nav_studio)
+                            .child(nav_runner)
                     )
             )
-            .child(
-                // Main Workspace Layout
-                div()
-                    .flex()
-                    .flex_1()
-                    .h_full()
-                    .child(self.sidebar.clone())
-                    .child(self.editor_pane.clone())
-                    .child(self.response_pane.clone())
-            )
+            .child(main_content)
     }
 }
