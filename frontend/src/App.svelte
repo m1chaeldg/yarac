@@ -172,8 +172,8 @@
               <select
                 bind:value={activeReq.method}
                 onchange={() => workspaceStore.updateActiveRequest({ method: activeReq?.method })}
-                class="bg-apple-surface-tile-3 border border-apple-hairline-dark text-xs font-bold rounded-apple-sm px-2.5 py-1.5 focus:outline-none focus:border-apple-primary font-mono
-                  {activeReq.method === 'GET' ? 'text-sky-400' : activeReq.method === 'POST' ? 'text-emerald-400' : activeReq.method === 'PUT' ? 'text-amber-400' : activeReq.method === 'DELETE' ? 'text-rose-400' : 'text-purple-400'}"
+                class="bg-apple-surface-tile-3 border border-apple-hairline-dark/80 text-xs font-bold rounded-apple-sm px-2.5 py-1.5 focus:outline-none focus:border-apple-primary font-mono
+                  {activeReq.method === 'GET' ? 'text-apple-primary-on-dark' : activeReq.method === 'POST' ? 'text-emerald-400' : activeReq.method === 'PUT' ? 'text-amber-400' : activeReq.method === 'DELETE' ? 'text-rose-400' : 'text-purple-400'}"
               >
                 <option>GET</option>
                 <option>POST</option>
@@ -213,7 +213,7 @@
               <button
                 type="button"
                 onclick={() => workspaceStore.saveActiveRequest()}
-                class="apple-button-dark-utility bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-slate-200 text-xs font-semibold px-3.5 py-1.5 rounded-apple-sm border border-apple-hairline-dark/80 transition-colors"
+                class="apple-button-dark-utility bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-on-dark text-xs font-medium px-3.5 py-1.5 rounded-apple-sm border border-apple-hairline-dark/80 transition-colors"
               >
                 Save
               </button>
@@ -225,7 +225,7 @@
               <select
                 value={workspaceStore.currentWorkspace.activeEnvironmentId}
                 onchange={(e) => workspaceStore.setActiveEnvironment((e.target as HTMLSelectElement).value)}
-                class="bg-apple-surface-tile-3 border border-apple-hairline-dark text-xs text-slate-200 rounded-apple-sm px-2.5 py-1 focus:outline-none font-medium"
+                class="bg-apple-surface-tile-3 border border-apple-hairline-dark/80 text-xs text-apple-body-on-dark rounded-apple-sm px-2.5 py-1 focus:outline-none font-medium"
               >
                 {#each workspaceStore.currentWorkspace.environments as env (env.id)}
                   <option value={env.id}>{env.name}</option>

@@ -121,65 +121,67 @@ tests {
 </script>
 
 {#if isOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-    <div class="bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden text-slate-100">
+  <div class="fixed inset-0 z-50 flex items-center justify-center apple-frosted-backdrop p-4 font-sans animate-in fade-in duration-100">
+    <div class="apple-modal-card w-full max-w-3xl max-h-[85vh] flex flex-col text-apple-body-on-dark">
       <!-- Modal Header -->
-      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+      <div class="px-6 py-4 border-b border-apple-hairline-dark flex items-center justify-between bg-apple-surface-tile-2 shrink-0">
         <div class="flex items-center gap-3">
-          <div class="w-3 h-3 rounded-full bg-sky-500 shadow-md shadow-sky-500/40"></div>
-          <h2 class="text-base font-semibold text-slate-100">Interoperability Hub</h2>
-          <span class="text-xs px-2 py-0.5 rounded bg-sky-950/80 text-sky-400 border border-sky-800/40 font-mono">OpenAPI 3.1 & Bruno</span>
+          <div class="w-2.5 h-2.5 rounded-apple-full bg-apple-primary"></div>
+          <h2 class="apple-body-strong text-apple-body-on-dark">Interoperability Hub</h2>
+          <span class="apple-micro-legal px-2 py-0.5 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark border border-apple-hairline-dark font-mono">OpenAPI 3.1 & Bruno</span>
         </div>
         <button
           onclick={onClose}
           aria-label="Close dialog"
-          class="text-slate-400 hover:text-slate-200 transition-colors text-lg font-mono"
+          class="apple-button-icon-circular w-7 h-7 text-xs font-bold"
         >
           ✕
         </button>
       </div>
 
       <!-- Navigation Tabs -->
-      <div class="px-6 border-b border-slate-800 bg-slate-950 flex gap-4 text-xs">
+      <div class="px-6 border-b border-apple-hairline-dark bg-apple-surface-tile-3 flex gap-4 text-xs shrink-0">
         <button
+          type="button"
           onclick={() => { activeTab = 'import'; statusMessage = null; }}
-          class="py-3 font-semibold border-b-2 transition-colors {activeTab === 'import' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200'}"
+          class="py-3 font-semibold border-b-2 transition-colors {activeTab === 'import' ? 'border-apple-primary text-apple-primary-on-dark' : 'border-transparent text-apple-body-muted hover:text-white'}"
         >
           Import (Bruno / OpenAPI / Postman)
         </button>
         <button
+          type="button"
           onclick={() => { activeTab = 'export'; statusMessage = null; }}
-          class="py-3 font-semibold border-b-2 transition-colors {activeTab === 'export' ? 'border-sky-500 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-200'}"
+          class="py-3 font-semibold border-b-2 transition-colors {activeTab === 'export' ? 'border-apple-primary text-apple-primary-on-dark' : 'border-transparent text-apple-body-muted hover:text-white'}"
         >
           Export to OpenAPI v3.1
         </button>
       </div>
 
       <!-- Modal Body -->
-      <div class="p-6 space-y-4 overflow-y-auto">
+      <div class="p-6 space-y-4 overflow-y-auto bg-apple-surface-tile-1">
         {#if activeTab === 'import'}
           <!-- Format Selector -->
           <div class="flex items-center gap-3">
-            <span class="text-xs font-semibold text-slate-400 uppercase">Format:</span>
+            <span class="apple-micro-legal font-semibold text-apple-ink-muted-48 uppercase">Format:</span>
             <div class="flex gap-2">
               <button
                 type="button"
                 onclick={() => importFormat = 'bruno'}
-                class="px-3 py-1 rounded-md text-xs font-medium border transition-colors {importFormat === 'bruno' ? 'bg-amber-950/60 border-amber-500 text-amber-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'}"
+                class="px-3 py-1 rounded-apple-pill text-xs font-medium border transition-colors {importFormat === 'bruno' ? 'bg-apple-primary text-white border-transparent' : 'bg-apple-surface-tile-2 border-apple-hairline-dark text-apple-body-muted hover:text-white'}"
               >
                 Bruno (.bru)
               </button>
               <button
                 type="button"
                 onclick={() => importFormat = 'openapi'}
-                class="px-3 py-1 rounded-md text-xs font-medium border transition-colors {importFormat === 'openapi' ? 'bg-sky-950/60 border-sky-500 text-sky-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'}"
+                class="px-3 py-1 rounded-apple-pill text-xs font-medium border transition-colors {importFormat === 'openapi' ? 'bg-apple-primary text-white border-transparent' : 'bg-apple-surface-tile-2 border-apple-hairline-dark text-apple-body-muted hover:text-white'}"
               >
                 OpenAPI v3/v3.1
               </button>
               <button
                 type="button"
                 onclick={() => importFormat = 'postman'}
-                class="px-3 py-1 rounded-md text-xs font-medium border transition-colors {importFormat === 'postman' ? 'bg-orange-950/60 border-orange-500 text-orange-300' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'}"
+                class="px-3 py-1 rounded-apple-pill text-xs font-medium border transition-colors {importFormat === 'postman' ? 'bg-apple-primary text-white border-transparent' : 'bg-apple-surface-tile-2 border-apple-hairline-dark text-apple-body-muted hover:text-white'}"
               >
                 Postman v2.1
               </button>
@@ -187,48 +189,48 @@ tests {
           </div>
 
           <div>
-            <label for="import-paste-area" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+            <label for="import-paste-area" class="block apple-micro-legal font-semibold text-apple-ink-muted-48 uppercase tracking-wider mb-1.5">
               Paste Specification or Request Content
             </label>
             <textarea
               id="import-paste-area"
               rows="9"
               bind:value={importText}
-              class="w-full bg-slate-950 border border-slate-800 text-slate-200 font-mono text-xs rounded-lg p-3 focus:outline-none focus:border-sky-500"
+              class="w-full bg-apple-surface-black border border-apple-hairline-dark text-apple-body-on-dark font-mono text-xs rounded-apple-sm p-3 focus:outline-none focus:border-apple-primary"
             ></textarea>
           </div>
         {:else}
           <!-- Export Section -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="export-title" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">API Title</label>
+              <label for="export-title" class="block apple-micro-legal font-semibold text-apple-ink-muted-48 uppercase tracking-wider mb-1">API Title</label>
               <input
                 id="export-title"
                 type="text"
                 bind:value={exportTitle}
-                class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded px-3 py-1.5 focus:outline-none focus:border-sky-500"
+                class="w-full bg-apple-surface-black border border-apple-hairline-dark text-apple-body-on-dark text-xs rounded-apple-sm px-3 py-1.5 focus:outline-none focus:border-apple-primary"
               />
             </div>
             <div>
-              <label for="export-version" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">API Version</label>
+              <label for="export-version" class="block apple-micro-legal font-semibold text-apple-ink-muted-48 uppercase tracking-wider mb-1">API Version</label>
               <input
                 id="export-version"
                 type="text"
                 bind:value={exportVersion}
-                class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded px-3 py-1.5 focus:outline-none focus:border-sky-500 font-mono"
+                class="w-full bg-apple-surface-black border border-apple-hairline-dark text-apple-body-on-dark text-xs rounded-apple-sm px-3 py-1.5 focus:outline-none focus:border-apple-primary font-mono"
               />
             </div>
           </div>
 
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <label for="export-preview-area" class="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Exported OpenAPI v3.1 Preview (with <code class="text-sky-400">x-yarac-*</code> overlays)
+              <label for="export-preview-area" class="apple-micro-legal font-semibold text-apple-ink-muted-48 uppercase tracking-wider">
+                Exported OpenAPI v3.1 Preview (with <code class="text-apple-primary-on-dark">x-yarac-*</code> overlays)
               </label>
               <button
                 type="button"
                 onclick={generateOpenApiExport}
-                class="text-xs text-sky-400 hover:text-sky-300 font-semibold"
+                class="text-xs text-apple-primary-on-dark hover:underline font-semibold"
               >
                 Generate Preview
               </button>
@@ -239,13 +241,13 @@ tests {
               readonly
               bind:value={exportResult}
               placeholder="Click 'Generate Preview' or 'Export OpenAPI' to inspect specification..."
-              class="w-full bg-slate-950 border border-slate-800 text-slate-200 font-mono text-xs rounded-lg p-3 focus:outline-none"
+              class="w-full bg-apple-surface-black border border-apple-hairline-dark text-apple-body-on-dark font-mono text-xs rounded-apple-sm p-3 focus:outline-none"
             ></textarea>
           </div>
         {/if}
 
         {#if statusMessage}
-          <div class="p-3 rounded text-xs flex items-center gap-2 {statusMessage.type === 'success' ? 'bg-emerald-950/60 border border-emerald-800 text-emerald-300' : 'bg-rose-950/60 border border-rose-800 text-rose-300'}">
+          <div class="p-3 rounded-apple-sm text-xs flex items-center gap-2 {statusMessage.type === 'success' ? 'bg-apple-surface-tile-2 border border-apple-primary/40 text-apple-primary-on-dark' : 'bg-apple-surface-tile-2 border border-rose-800 text-rose-300'}">
             <span>{statusMessage.type === 'success' ? '✓' : '✗'}</span>
             <span>{statusMessage.text}</span>
           </div>
@@ -253,22 +255,24 @@ tests {
       </div>
 
       <!-- Modal Footer -->
-      <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-between bg-slate-950/60">
-        <span class="text-xs text-slate-500">
+      <div class="px-6 py-4 border-t border-apple-hairline-dark flex items-center justify-between bg-apple-surface-tile-2 shrink-0">
+        <span class="apple-fine-print text-apple-ink-muted-48">
           Strict lossless mapping without legacy Postman polyfills
         </span>
         <div class="flex items-center gap-2">
           {#if activeTab === 'import'}
             <button
+              type="button"
               onclick={executeImport}
-              class="px-4 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs transition-colors shadow-sm"
+              class="apple-button-primary text-xs px-4 py-1.5 font-semibold"
             >
               Import into Workspace
             </button>
           {:else}
             <button
+              type="button"
               onclick={generateOpenApiExport}
-              class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-colors shadow-sm"
+              class="apple-button-primary text-xs px-4 py-1.5 font-semibold"
             >
               Export OpenAPI v3.1
             </button>

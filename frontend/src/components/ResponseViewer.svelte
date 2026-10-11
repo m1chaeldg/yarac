@@ -142,7 +142,7 @@
       <button
         type="button"
         onclick={() => activeView = 'json'}
-        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeView === 'json' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors cursor-pointer {activeView === 'json' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         JSON
       </button>
@@ -150,11 +150,11 @@
       <button
         type="button"
         onclick={() => activeView = 'table'}
-        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'table' ? 'bg-apple-surface-tile-3 text-emerald-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer {activeView === 'table' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Table</span>
         {#if tableData.rows.length > 0}
-          <span class="text-[10px] px-1.5 rounded-apple-pill bg-emerald-950 text-emerald-400 border border-emerald-800">
+          <span class="text-[10px] px-1.5 py-0.2 rounded-apple-pill bg-apple-surface-tile-3 text-apple-body-muted border border-apple-hairline-dark/60 font-mono">
             {tableData.rows.length}
           </span>
         {/if}
@@ -163,7 +163,7 @@
       <button
         type="button"
         onclick={() => activeView = 'visualizer'}
-        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'visualizer' ? 'bg-apple-surface-tile-3 text-amber-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer {activeView === 'visualizer' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Charts</span>
       </button>
@@ -171,7 +171,7 @@
       <button
         type="button"
         onclick={() => activeView = 'html'}
-        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeView === 'html' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors cursor-pointer {activeView === 'html' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         HTML
       </button>
@@ -179,7 +179,7 @@
       <button
         type="button"
         onclick={() => activeView = 'xml'}
-        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeView === 'xml' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors cursor-pointer {activeView === 'xml' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         XML
       </button>
@@ -187,7 +187,7 @@
       <button
         type="button"
         onclick={() => activeView = 'raw'}
-        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeView === 'raw' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors cursor-pointer {activeView === 'raw' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         Raw
       </button>
@@ -195,7 +195,7 @@
       <button
         type="button"
         onclick={() => activeView = 'headers'}
-        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'headers' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer {activeView === 'headers' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Headers</span>
         {#if response?.headers}
@@ -206,11 +206,11 @@
       <button
         type="button"
         onclick={() => activeView = 'tests'}
-        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'tests' ? 'bg-apple-surface-tile-3 text-pink-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer {activeView === 'tests' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Test Results</span>
         {#if response?.assertions && response.assertions.length > 0}
-          <span class="text-[10px] px-1.5 rounded-apple-pill {testSummary.failed > 0 ? 'bg-rose-950 text-rose-400 border border-rose-800' : 'bg-emerald-950 text-emerald-400 border border-emerald-800'}">
+          <span class="text-[10px] px-1.5 py-0.2 rounded-apple-pill font-mono {testSummary.failed > 0 ? 'bg-rose-950/80 text-rose-400 border border-rose-800/80' : 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'}">
             {summaryPassedText(testSummary)}
           </span>
         {/if}
@@ -219,11 +219,11 @@
       <button
         type="button"
         onclick={() => activeView = 'timeline'}
-        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'timeline' ? 'bg-apple-surface-tile-3 text-purple-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer {activeView === 'timeline' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Timeline</span>
         {#if timeline.length > 0}
-          <span class="text-[10px] px-1.5 rounded-apple-pill bg-purple-950 text-purple-400 border border-purple-800">
+          <span class="text-[10px] px-1.5 py-0.2 rounded-apple-pill bg-apple-surface-tile-3 text-apple-body-muted border border-apple-hairline-dark/60 font-mono">
             {timeline.length}
           </span>
         {/if}
@@ -235,7 +235,7 @@
           type="button"
           onclick={() => isToolsMenuOpen = !isToolsMenuOpen}
           title="Response Tools"
-          class="px-2.5 py-1 rounded-apple-sm border border-apple-hairline-dark/80 bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-white text-xs font-bold transition-colors"
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm border border-apple-hairline-dark/80 bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-white text-xs font-bold transition-colors cursor-pointer"
         >
           •••
         </button>
@@ -248,7 +248,7 @@
             onclick={() => isToolsMenuOpen = false}
             onkeydown={(e) => { if (e.key === 'Escape') isToolsMenuOpen = false; }}
           ></div>
-          <div class="absolute right-0 top-full mt-1 w-48 bg-apple-surface-tile-2 border border-apple-hairline-dark rounded-apple-md shadow-xl z-50 py-1 text-apple-body-on-dark text-xs font-sans">
+          <div class="absolute right-0 top-full mt-1 w-48 bg-apple-surface-tile-2 border border-apple-hairline-dark rounded-apple-md shadow-none z-50 py-1 text-apple-body-on-dark text-xs font-sans">
             <button
               type="button"
               onclick={copyResponse}

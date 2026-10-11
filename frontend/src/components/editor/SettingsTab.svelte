@@ -15,16 +15,16 @@
 </script>
 
 <div class="max-w-2xl space-y-4 font-sans">
-  <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+  <span class="text-[11px] font-semibold text-apple-body-muted uppercase tracking-wider block">
     Request Execution Settings
   </span>
 
-  <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-lg space-y-4">
+  <div class="p-4 bg-apple-surface-tile-2 border border-apple-hairline-dark/60 rounded-apple-lg space-y-4">
     <!-- Follow Redirects -->
     <div class="flex items-center justify-between">
       <div>
-        <label for="set-follow-redirect" class="text-xs font-semibold text-slate-200 block cursor-pointer">Follow Redirects</label>
-        <span class="text-[11px] text-slate-500">Automatically follow HTTP 3xx redirection responses</span>
+        <label for="set-follow-redirect" class="text-xs font-semibold text-apple-body-on-dark block cursor-pointer">Follow Redirects</label>
+        <span class="text-[11px] text-apple-ink-muted-48">Automatically follow HTTP 3xx redirection responses</span>
       </div>
       <input
         id="set-follow-redirect"
@@ -37,17 +37,17 @@
             workspaceStore.updateActiveRequest({ settings: req.settings });
           }
         }}
-        class="w-4 h-4 rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0 cursor-pointer"
+        class="w-4 h-4 rounded-apple-xs bg-apple-surface-tile-3 border-apple-hairline-dark/80 text-apple-primary focus:ring-0 cursor-pointer"
       />
     </div>
 
-    <div class="border-t border-slate-800/80"></div>
+    <div class="border-t border-apple-hairline-dark/60"></div>
 
     <!-- Max Redirects -->
     <div class="flex items-center justify-between">
       <div>
-        <label for="set-max-redirects" class="text-xs font-semibold text-slate-200 block">Max Redirects</label>
-        <span class="text-[11px] text-slate-500">Maximum number of consecutive redirects before aborting</span>
+        <label for="set-max-redirects" class="text-xs font-semibold text-apple-body-on-dark block">Max Redirects</label>
+        <span class="text-[11px] text-apple-ink-muted-48">Maximum number of consecutive redirects before aborting</span>
       </div>
       <input
         id="set-max-redirects"
@@ -62,17 +62,17 @@
             workspaceStore.updateActiveRequest({ settings: req.settings });
           }
         }}
-        class="w-24 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs font-mono text-slate-200 focus:outline-none focus:border-sky-500 text-right"
+        class="w-24 bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-sm px-2.5 py-1 text-xs font-mono text-apple-body-on-dark focus:outline-none focus:border-apple-primary text-right"
       />
     </div>
 
-    <div class="border-t border-slate-800/80"></div>
+    <div class="border-t border-apple-hairline-dark/60"></div>
 
     <!-- Timeout (ms) -->
     <div class="flex items-center justify-between">
       <div>
-        <label for="set-timeout" class="text-xs font-semibold text-slate-200 block">Timeout (ms)</label>
-        <span class="text-[11px] text-slate-500">Maximum execution time before request cancels. <strong>0</strong> = indefinite (no timeout)</span>
+        <label for="set-timeout" class="text-xs font-semibold text-apple-body-on-dark block">Timeout (ms)</label>
+        <span class="text-[11px] text-apple-ink-muted-48">Maximum execution time before request cancels. <strong>0</strong> = indefinite (no timeout)</span>
       </div>
       <div class="flex items-center gap-2">
         <input
@@ -88,19 +88,19 @@
               workspaceStore.updateActiveRequest({ settings: req.settings });
             }
           }}
-          class="w-28 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs font-mono text-slate-200 focus:outline-none focus:border-sky-500 text-right"
+          class="w-28 bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-sm px-2.5 py-1 text-xs font-mono text-apple-body-on-dark focus:outline-none focus:border-apple-primary text-right"
         />
-        <span class="text-[11px] text-slate-400 font-mono">ms</span>
+        <span class="text-[11px] text-apple-body-muted font-mono">ms</span>
       </div>
     </div>
 
-    <div class="border-t border-slate-800/80"></div>
+    <div class="border-t border-apple-hairline-dark/60"></div>
 
     <!-- Verify SSL -->
     <div class="flex items-center justify-between">
       <div>
-        <label for="set-verify-ssl" class="text-xs font-semibold text-slate-200 block cursor-pointer">Verify SSL Certificates</label>
-        <span class="text-[11px] text-slate-500">Enforce valid TLS / HTTPS certificates for remote server</span>
+        <label for="set-verify-ssl" class="text-xs font-semibold text-apple-body-on-dark block cursor-pointer">Verify SSL Certificates</label>
+        <span class="text-[11px] text-apple-ink-muted-48">Enforce valid TLS / HTTPS certificates for remote server</span>
       </div>
       <input
         id="set-verify-ssl"
@@ -113,17 +113,17 @@
             workspaceStore.updateActiveRequest({ settings: req.settings });
           }
         }}
-        class="w-4 h-4 rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0 cursor-pointer"
+        class="w-4 h-4 rounded-apple-xs bg-apple-surface-tile-3 border-apple-hairline-dark/80 text-apple-primary focus:ring-0 cursor-pointer"
       />
     </div>
 
-    <div class="border-t border-slate-800/80"></div>
+    <div class="border-t border-apple-hairline-dark/60"></div>
 
     <!-- Inherit Auth -->
     <div class="flex items-center justify-between">
       <div>
-        <label for="set-inherit-auth" class="text-xs font-semibold text-slate-200 block cursor-pointer">Inherit Collection Auth</label>
-        <span class="text-[11px] text-slate-500">Automatically attach parent collection authentication credentials</span>
+        <label for="set-inherit-auth" class="text-xs font-semibold text-apple-body-on-dark block cursor-pointer">Inherit Collection Auth</label>
+        <span class="text-[11px] text-apple-ink-muted-48">Automatically attach parent collection authentication credentials</span>
       </div>
       <input
         id="set-inherit-auth"
@@ -136,7 +136,7 @@
             workspaceStore.updateActiveRequest({ settings: req.settings });
           }
         }}
-        class="w-4 h-4 rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0 cursor-pointer"
+        class="w-4 h-4 rounded-apple-xs bg-apple-surface-tile-3 border-apple-hairline-dark/80 text-apple-primary focus:ring-0 cursor-pointer"
       />
     </div>
   </div>

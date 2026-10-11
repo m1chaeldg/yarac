@@ -519,28 +519,28 @@
         onclick={() => onSelectView('runner')}
         class="w-full text-left px-2.5 py-1.5 rounded-apple-sm text-xs font-semibold flex items-center justify-between transition-colors
           {activeView === 'runner'
-            ? 'bg-emerald-600 text-white shadow-none'
+            ? 'bg-apple-primary text-white shadow-none'
             : 'text-apple-body-muted hover:bg-apple-surface-tile-2 hover:text-white'}"
       >
         <div class="flex items-center gap-2.5">
           <span>📊</span>
           <span>Collection Runner</span>
         </div>
-        <span class="text-[9px] px-1 rounded-apple-pill bg-emerald-950 text-emerald-400 font-mono border border-emerald-800">HDR</span>
+        <span class="text-[9px] px-1 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark font-mono border border-apple-hairline-dark">HDR</span>
       </button>
     </div>
 
     <!-- Collections & Requests Tree -->
     <div class="flex-1 overflow-y-auto p-2 space-y-3">
       <div class="flex items-center justify-between px-1">
-        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Collections</span>
+        <span class="apple-micro-legal font-bold text-apple-ink-muted-48 uppercase tracking-wider">Collections</span>
         <div class="flex items-center gap-1">
           <button
             type="button"
             title="Expand All Collections"
             aria-label="Expand All Collections"
             onclick={expandAll}
-            class="p-0.5 rounded text-slate-400 hover:text-sky-300 hover:bg-slate-800 transition-colors"
+            class="p-1 rounded-apple-sm text-apple-body-muted hover:text-white hover:bg-apple-surface-tile-2 transition-colors"
           >
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="7 13 12 18 17 13"></polyline>
@@ -552,7 +552,7 @@
             title="Collapse All Collections"
             aria-label="Collapse All Collections"
             onclick={collapseAll}
-            class="p-0.5 rounded text-slate-400 hover:text-sky-300 hover:bg-slate-800 transition-colors"
+            class="p-1 rounded-apple-sm text-apple-body-muted hover:text-white hover:bg-apple-surface-tile-2 transition-colors"
           >
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="17 11 12 6 7 11"></polyline>
@@ -562,7 +562,7 @@
           <button
             type="button"
             onclick={() => isAddingCollection = !isAddingCollection}
-            class="text-[10px] text-sky-400 hover:text-sky-300 font-medium font-mono px-1 py-0.5 rounded hover:bg-slate-800"
+            class="apple-micro-legal text-apple-primary-on-dark hover:underline font-medium font-mono px-1 py-0.5 rounded-apple-sm"
             title="Add Collection"
           >
             +folder
@@ -571,25 +571,25 @@
       </div>
 
       {#if isAddingCollection}
-        <div class="p-2 rounded bg-slate-950 border border-slate-800 space-y-1">
+        <div class="p-2 rounded-apple-sm bg-apple-surface-tile-2 border border-apple-hairline-dark space-y-1.5">
           <input
             type="text"
             bind:value={newCollectionName}
             placeholder="Collection Name..."
-            class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 focus:outline-none"
+            class="w-full bg-apple-surface-black border border-apple-hairline-dark rounded-apple-sm px-2 py-1 text-xs text-apple-body-on-dark focus:outline-none focus:border-apple-primary"
           />
-          <div class="flex justify-end gap-1 text-[11px]">
+          <div class="flex justify-end gap-1.5 text-[11px]">
             <button
               type="button"
               onclick={() => isAddingCollection = false}
-              class="px-2 py-0.5 rounded text-slate-400 hover:bg-slate-800"
+              class="px-2 py-0.5 rounded-apple-sm text-apple-body-muted hover:bg-apple-surface-tile-3"
             >
               Cancel
             </button>
             <button
               type="button"
               onclick={handleCreateCollection}
-              class="px-2 py-0.5 rounded bg-sky-600 text-white font-medium"
+              class="apple-button-primary px-2.5 py-0.5 text-xs font-medium"
             >
               Add
             </button>
@@ -638,15 +638,15 @@
                 col
               };
             }}
-            class="flex items-center justify-between px-2 py-1 rounded transition-colors text-slate-300 font-semibold group cursor-pointer select-none
-              {draggedColId === col.id ? 'opacity-40 border border-dashed border-sky-400' : ''}
-              {isColOver && dropPosition === 'inside' ? 'bg-sky-950/80 ring-1 ring-sky-400 text-sky-200' : 'hover:bg-slate-800/40'}
-              {isColOver && dropPosition === 'before' ? 'border-t-2 border-sky-400' : ''}
-              {isColOver && dropPosition === 'after' ? 'border-b-2 border-sky-400' : ''}"
+            class="flex items-center justify-between px-2 py-1.5 rounded-apple-sm transition-colors text-apple-body-on-dark font-semibold group cursor-pointer select-none
+              {draggedColId === col.id ? 'opacity-40 border border-dashed border-apple-primary' : ''}
+              {isColOver && dropPosition === 'inside' ? 'bg-apple-primary/20 ring-1 ring-apple-primary text-apple-primary-on-dark' : 'hover:bg-apple-surface-tile-2/60'}
+              {isColOver && dropPosition === 'before' ? 'border-t-2 border-apple-primary' : ''}
+              {isColOver && dropPosition === 'after' ? 'border-b-2 border-apple-primary' : ''}"
           >
-            <div class="flex items-center gap-1 truncate">
+            <div class="flex items-center gap-1.5 truncate">
               <span
-                class="text-slate-500 opacity-40 group-hover:opacity-100 text-[10px] cursor-grab active:cursor-grabbing"
+                class="text-apple-ink-muted-48 opacity-40 group-hover:opacity-100 text-[10px] cursor-grab active:cursor-grabbing"
                 title="Drag to reorder"
                 onclick={(e) => e.stopPropagation()}
                 role="presentation"
@@ -658,22 +658,22 @@
                   e.stopPropagation();
                   toggleColCollapse(col.id);
                 }}
-                class="w-3.5 h-3.5 flex items-center justify-center text-slate-400 hover:text-slate-100 transition-transform duration-150 {collapsed ? '' : 'rotate-90'}"
+                class="w-3.5 h-3.5 flex items-center justify-center text-apple-body-muted hover:text-white transition-transform duration-150 {collapsed ? '' : 'rotate-90'}"
               >
                 <svg class="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z"/>
                 </svg>
               </button>
-              <span class="text-amber-400 text-xs">{collapsed ? '📁' : '📂'}</span>
+              <span class="text-apple-primary-on-dark text-xs">{collapsed ? '📁' : '📂'}</span>
               <span class="truncate">{col.name}</span>
             </div>
             <div class="flex items-center gap-1">
-              <span class="text-[10px] text-slate-500 font-mono">{colRequests.length}</span>
+              <span class="text-[10px] text-apple-ink-muted-48 font-mono">{colRequests.length}</span>
               <button
                 type="button"
                 title="Add request to this collection"
                 onclick={(e) => { e.stopPropagation(); handleCreateRequest(col.id); }}
-                class="opacity-0 group-hover:opacity-100 text-[10px] text-sky-400 hover:text-sky-300 px-1 rounded hover:bg-slate-700"
+                class="opacity-0 group-hover:opacity-100 text-[10px] text-apple-primary-on-dark hover:underline px-1 rounded-apple-sm hover:bg-apple-surface-tile-3"
               >
                 +req
               </button>
@@ -685,7 +685,7 @@
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                   colContextMenu = { x: rect.right, y: rect.bottom, col };
                 }}
-                class="opacity-0 group-hover:opacity-100 hover:text-white px-1 py-0.5 rounded text-[10px] text-slate-500 hover:bg-slate-700/60"
+                class="opacity-0 group-hover:opacity-100 hover:text-white px-1 py-0.5 rounded-apple-sm text-[10px] text-apple-body-muted hover:bg-apple-surface-tile-3"
               >
                 •••
               </button>
@@ -786,7 +786,7 @@
     <button
       type="button"
       onclick={onOpenEnvManager}
-      class="w-full text-left px-2.5 py-1.5 rounded-apple-sm text-emerald-400 hover:bg-apple-surface-tile-2 transition-colors flex items-center justify-between border border-transparent hover:border-apple-hairline-dark/60"
+      class="w-full text-left px-2.5 py-1.5 rounded-apple-sm text-apple-body-on-dark hover:bg-apple-surface-tile-2 transition-colors flex items-center justify-between border border-transparent hover:border-apple-hairline-dark/60"
     >
       <div class="flex items-center gap-1.5 truncate">
         <span>🌱</span>
@@ -794,7 +794,7 @@
           Env: {workspaceStore.activeEnvironment?.name || 'None'}
         </span>
       </div>
-      <span class="text-[10px] px-1 rounded-apple-pill bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">
+      <span class="text-[10px] px-1.5 py-0.2 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark border border-apple-hairline-dark font-mono">
         Edit
       </span>
     </button>
@@ -803,20 +803,20 @@
     <button
       type="button"
       onclick={onOpenInterop}
-      class="w-full text-left px-2.5 py-1.5 rounded-apple-sm text-apple-primary-on-dark hover:bg-apple-surface-tile-2 transition-colors flex items-center justify-between border border-transparent hover:border-apple-hairline-dark/60"
+      class="w-full text-left px-2.5 py-1.5 rounded-apple-sm text-apple-body-on-dark hover:bg-apple-surface-tile-2 transition-colors flex items-center justify-between border border-transparent hover:border-apple-hairline-dark/60"
     >
       <span>Interop (OpenAPI / Bruno)</span>
-      <span class="text-[10px] px-1 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark border border-apple-hairline-dark">3.1</span>
+      <span class="text-[10px] px-1.5 py-0.2 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark border border-apple-hairline-dark font-mono">3.1</span>
     </button>
 
     <!-- 3-Way Conflict Simulation -->
     <button
       type="button"
       onclick={onOpenConflict}
-      class="w-full text-left px-2.5 py-1.5 rounded-apple-sm text-amber-300 hover:bg-apple-surface-tile-2 transition-colors flex items-center justify-between"
+      class="w-full text-left px-2.5 py-1.5 rounded-apple-sm text-apple-body-on-dark hover:bg-apple-surface-tile-2 transition-colors flex items-center justify-between border border-transparent hover:border-apple-hairline-dark/60"
     >
       <span>Simulate 3-Way Conflict</span>
-      <span class="text-[10px] px-1 rounded-apple-pill bg-amber-950/80 border border-amber-800/80">Test</span>
+      <span class="text-[10px] px-1.5 py-0.2 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark border border-apple-hairline-dark font-mono">Test</span>
     </button>
   </div>
 </div>
@@ -858,12 +858,12 @@
 <!-- Rename Request Dialog -->
 {#if renameReq}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+    class="fixed inset-0 z-50 flex items-center justify-center apple-frosted-backdrop p-4 animate-in fade-in duration-100"
     onclick={() => renameReq = null}
     role="presentation"
   >
     <div
-      class="bg-slate-900 border border-slate-700 rounded-xl p-4 w-80 shadow-2xl space-y-3"
+      class="apple-modal-card p-4 w-80 space-y-3 font-sans text-apple-body-on-dark"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
       role="dialog"
@@ -871,14 +871,14 @@
       tabindex="-1"
     >
       <div class="flex items-center justify-between">
-        <h3 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+        <h3 class="apple-caption-strong text-apple-body-on-dark flex items-center gap-1.5">
           <span>✏️</span>
           <span>Rename Request</span>
         </h3>
         <button
           type="button"
           onclick={() => renameReq = null}
-          class="text-slate-400 hover:text-slate-200 text-xs"
+          class="apple-button-icon-circular w-6 h-6 text-xs"
         >
           ✕
         </button>
@@ -891,21 +891,21 @@
           if (e.key === 'Enter') handleCommitRename();
           if (e.key === 'Escape') renameReq = null;
         }}
-        class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
+        class="w-full bg-apple-surface-black border border-apple-hairline-dark rounded-apple-sm px-2.5 py-1.5 text-xs text-apple-body-on-dark focus:outline-none focus:border-apple-primary"
       />
 
       <div class="flex justify-end gap-2 text-xs">
         <button
           type="button"
           onclick={() => renameReq = null}
-          class="px-2.5 py-1 rounded text-slate-400 hover:bg-slate-800"
+          class="apple-button-dark-utility text-xs px-2.5 py-1"
         >
           Cancel
         </button>
         <button
           type="button"
           onclick={handleCommitRename}
-          class="px-3 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium"
+          class="apple-button-primary text-xs px-3 py-1 font-medium"
         >
           Save
         </button>
@@ -917,39 +917,39 @@
 <!-- Delete Request Confirmation Dialog -->
 {#if deleteReq}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+    class="fixed inset-0 z-50 flex items-center justify-center apple-frosted-backdrop p-4 animate-in fade-in duration-100"
     onclick={() => deleteReq = null}
     role="presentation"
   >
     <div
-      class="bg-slate-900 border border-rose-900/60 rounded-xl p-4 w-80 shadow-2xl space-y-3"
+      class="apple-modal-card p-4 w-80 space-y-3 font-sans text-apple-body-on-dark border-rose-900/60"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"
       tabindex="-1"
     >
-      <div class="flex items-center gap-2 text-rose-400 text-xs font-bold">
+      <div class="flex items-center gap-2 text-rose-400 apple-caption-strong">
         <span>⚠️</span>
         <span>Delete Request</span>
       </div>
 
-      <p class="text-xs text-slate-300">
-        Are you sure you want to delete <span class="font-semibold text-slate-100">"{deleteReq.name}"</span>? This will remove the request and close its tab.
+      <p class="apple-fine-print text-apple-body-muted">
+        Are you sure you want to delete <span class="font-semibold text-white">"{deleteReq.name}"</span>? This will remove the request and close its tab.
       </p>
 
       <div class="flex justify-end gap-2 text-xs">
         <button
           type="button"
           onclick={() => deleteReq = null}
-          class="px-2.5 py-1 rounded text-slate-400 hover:bg-slate-800"
+          class="apple-button-dark-utility text-xs px-2.5 py-1"
         >
           Cancel
         </button>
         <button
           type="button"
           onclick={handleCommitDelete}
-          class="px-3 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-medium"
+          class="apple-button-primary text-xs px-3 py-1 font-medium bg-rose-600 hover:bg-rose-500"
         >
           Delete
         </button>
@@ -961,12 +961,12 @@
 <!-- Rename Collection Dialog -->
 {#if renameCol}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+    class="fixed inset-0 z-50 flex items-center justify-center apple-frosted-backdrop p-4 animate-in fade-in duration-100"
     onclick={() => renameCol = null}
     role="presentation"
   >
     <div
-      class="bg-slate-900 border border-slate-700 rounded-xl p-4 w-80 shadow-2xl space-y-3"
+      class="apple-modal-card p-4 w-80 space-y-3 font-sans text-apple-body-on-dark"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
       role="dialog"
@@ -974,14 +974,14 @@
       tabindex="-1"
     >
       <div class="flex items-center justify-between">
-        <h3 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+        <h3 class="apple-caption-strong text-apple-body-on-dark flex items-center gap-1.5">
           <span>✏️</span>
           <span>Rename Collection</span>
         </h3>
         <button
           type="button"
           onclick={() => renameCol = null}
-          class="text-slate-400 hover:text-slate-200 text-xs"
+          class="apple-button-icon-circular w-6 h-6 text-xs"
         >
           ✕
         </button>
@@ -994,21 +994,21 @@
           if (e.key === 'Enter') handleCommitRenameCol();
           if (e.key === 'Escape') renameCol = null;
         }}
-        class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
+        class="w-full bg-apple-surface-black border border-apple-hairline-dark rounded-apple-sm px-2.5 py-1.5 text-xs text-apple-body-on-dark focus:outline-none focus:border-apple-primary"
       />
 
       <div class="flex justify-end gap-2 text-xs">
         <button
           type="button"
           onclick={() => renameCol = null}
-          class="px-2.5 py-1 rounded text-slate-400 hover:bg-slate-800"
+          class="apple-button-dark-utility text-xs px-2.5 py-1"
         >
           Cancel
         </button>
         <button
           type="button"
           onclick={handleCommitRenameCol}
-          class="px-3 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white font-medium"
+          class="apple-button-primary text-xs px-3 py-1 font-medium"
         >
           Save
         </button>
@@ -1020,39 +1020,39 @@
 <!-- Delete Collection Confirmation Dialog -->
 {#if deleteCol}
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+    class="fixed inset-0 z-50 flex items-center justify-center apple-frosted-backdrop p-4 animate-in fade-in duration-100"
     onclick={() => deleteCol = null}
     role="presentation"
   >
     <div
-      class="bg-slate-900 border border-rose-900/60 rounded-xl p-4 w-80 shadow-2xl space-y-3"
+      class="apple-modal-card p-4 w-80 space-y-3 font-sans text-apple-body-on-dark border-rose-900/60"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"
       tabindex="-1"
     >
-      <div class="flex items-center gap-2 text-rose-400 text-xs font-bold">
+      <div class="flex items-center gap-2 text-rose-400 apple-caption-strong">
         <span>⚠️</span>
         <span>Delete Collection</span>
       </div>
 
-      <p class="text-xs text-slate-300">
-        Are you sure you want to delete collection <span class="font-semibold text-slate-100">"{deleteCol.name}"</span>? All requests inside will be removed from disk.
+      <p class="apple-fine-print text-apple-body-muted">
+        Are you sure you want to delete collection <span class="font-semibold text-white">"{deleteCol.name}"</span>? All requests inside will be removed from disk.
       </p>
 
       <div class="flex justify-end gap-2 text-xs">
         <button
           type="button"
           onclick={() => deleteCol = null}
-          class="px-2.5 py-1 rounded text-slate-400 hover:bg-slate-800"
+          class="apple-button-dark-utility text-xs px-2.5 py-1"
         >
           Cancel
         </button>
         <button
           type="button"
           onclick={handleCommitDeleteCol}
-          class="px-3 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-medium"
+          class="apple-button-primary text-xs px-3 py-1 font-medium bg-rose-600 hover:bg-rose-500"
         >
           Delete
         </button>
@@ -1063,7 +1063,7 @@
 
 <!-- Toast Feedback -->
 {#if toast}
-  <div class="fixed bottom-4 right-4 z-50 px-3.5 py-2 rounded-lg bg-slate-800/95 border border-slate-700 text-slate-100 text-xs font-medium shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-md">
+  <div class="fixed bottom-4 right-4 z-50 px-3.5 py-2 rounded-apple-pill apple-frosted-glass bg-apple-surface-tile-2 border border-apple-hairline-dark text-white text-xs font-medium flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
     <span>{toast.icon}</span>
     <span>{toast.text}</span>
   </div>

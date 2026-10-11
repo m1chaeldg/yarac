@@ -36,7 +36,7 @@
         >
           <span>Body</span>
           {#if req.body.type !== 'none'}
-            <span class="text-[10px] px-1.5 py-0.2 rounded-apple-pill bg-apple-surface-tile-1 text-amber-400 font-mono uppercase border border-apple-hairline-dark/60">
+            <span class="text-[10px] px-1.5 py-0.2 rounded-apple-pill bg-apple-surface-tile-1 text-apple-primary-on-dark font-mono uppercase border border-apple-hairline-dark/60">
               {req.body.type}
             </span>
           {/if}
@@ -50,7 +50,7 @@
         >
           <span>Params</span>
           {#if req.params.filter(p => p.enabled && p.key).length > 0}
-            <span class="ml-1 text-[10px] px-1.5 rounded-apple-pill bg-apple-primary/20 text-apple-primary-on-dark border border-apple-primary/40">
+            <span class="ml-1 text-[10px] px-1.5 rounded-apple-pill bg-apple-primary/20 text-apple-primary-on-dark border border-apple-primary/40 font-mono">
               {req.params.filter(p => p.enabled && p.key).length}
             </span>
           {/if}
@@ -64,7 +64,7 @@
         >
           <span>Headers</span>
           {#if req.headers.filter(h => h.enabled && h.key).length > 0}
-            <span class="ml-1 text-[10px] px-1.5 rounded-apple-pill bg-apple-primary/20 text-apple-primary-on-dark border border-apple-primary/40">
+            <span class="ml-1 text-[10px] px-1.5 rounded-apple-pill bg-apple-primary/20 text-apple-primary-on-dark border border-apple-primary/40 font-mono">
               {req.headers.filter(h => h.enabled && h.key).length}
             </span>
           {/if}
@@ -74,11 +74,11 @@
         <button
           type="button"
           onclick={() => activeSubTab = 'variables'}
-          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'variables' ? 'bg-apple-surface-tile-3 text-amber-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'variables' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
         >
           <span>Variables</span>
           {#if (req.variables || []).filter(v => v.enabled && v.key).length > 0}
-            <span class="text-[10px] px-1.5 rounded-apple-pill bg-amber-950/80 text-amber-400 border border-amber-800/80">
+            <span class="text-[10px] px-1.5 rounded-apple-pill bg-apple-primary/20 text-apple-primary-on-dark border border-apple-primary/40 font-mono">
               {(req.variables || []).filter(v => v.enabled && v.key).length}
             </span>
           {/if}
@@ -88,11 +88,11 @@
         <button
           type="button"
           onclick={() => activeSubTab = 'auth'}
-          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'auth' ? 'bg-apple-surface-tile-3 text-emerald-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'auth' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
         >
           <span>Auth</span>
           {#if req.auth.type !== 'none' && req.auth.type !== 'inherit'}
-            <span class="w-1.5 h-1.5 rounded-apple-full bg-emerald-400"></span>
+            <span class="w-1.5 h-1.5 rounded-apple-full bg-apple-primary-on-dark"></span>
           {/if}
         </button>
 
@@ -112,11 +112,11 @@
         <button
           type="button"
           onclick={() => activeSubTab = 'assert'}
-          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'assert' ? 'bg-apple-surface-tile-3 text-teal-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'assert' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
         >
           <span>Assert</span>
           {#if req.assert?.trim()}
-            <span class="w-1.5 h-1.5 rounded-apple-full bg-teal-400"></span>
+            <span class="w-1.5 h-1.5 rounded-apple-full bg-apple-primary-on-dark"></span>
           {/if}
         </button>
 
@@ -124,11 +124,11 @@
         <button
           type="button"
           onclick={() => activeSubTab = 'tests'}
-          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'tests' ? 'bg-apple-surface-tile-3 text-pink-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'tests' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
         >
           <span>Tests</span>
           {#if req.tests?.trim()}
-            <span class="w-1.5 h-1.5 rounded-apple-full bg-pink-400"></span>
+            <span class="w-1.5 h-1.5 rounded-apple-full bg-apple-primary-on-dark"></span>
           {/if}
         </button>
 
@@ -136,7 +136,7 @@
         <button
           type="button"
           onclick={() => activeSubTab = 'settings'}
-          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'settings' ? 'bg-apple-surface-tile-3 text-slate-200 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'settings' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
         >
           <span>Settings</span>
         </button>
@@ -145,11 +145,11 @@
         <button
           type="button"
           onclick={() => activeSubTab = 'flow'}
-          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'flow' ? 'bg-apple-surface-tile-3 text-purple-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
+          class="px-2.5 py-1 rounded-apple-sm font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'flow' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
         >
           <span>Flow</span>
           {#if req.flow.once_per_run || req.flow.retry_until}
-            <span class="w-1.5 h-1.5 rounded-apple-full bg-purple-400"></span>
+            <span class="w-1.5 h-1.5 rounded-apple-full bg-apple-primary-on-dark"></span>
           {/if}
         </button>
       </div>
@@ -165,7 +165,7 @@
                 (e.target as HTMLSelectElement).value = '';
               }
             }}
-            class="bg-apple-surface-tile-3 border border-apple-hairline-dark/80 text-[11px] text-slate-200 rounded-apple-sm px-2.5 py-0.5 focus:outline-none focus:border-apple-primary"
+            class="bg-apple-surface-tile-3 border border-apple-hairline-dark/80 text-[11px] text-apple-body-on-dark rounded-apple-sm px-2.5 py-0.5 focus:outline-none focus:border-apple-primary"
           >
             <option value="">+ Add Common Header</option>
             {#each COMMON_HEADER_PRESETS as h}
@@ -197,7 +197,7 @@
       {:else if activeSubTab === 'settings'}
         <SettingsTab {req} />
       {:else if activeSubTab === 'flow'}
-        <div class="h-full border border-slate-800 rounded-lg overflow-hidden bg-slate-900/30">
+        <div class="h-full border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-tile-1">
           <FlowPanel
             flow={req.flow}
             onchange={(updated) => {

@@ -9,12 +9,12 @@
 
   function getMethodColor(method: string): string {
     switch (method) {
-      case 'GET': return 'text-sky-400 bg-sky-950/80 border-sky-800/60';
-      case 'POST': return 'text-emerald-400 bg-emerald-950/80 border-emerald-800/60';
-      case 'PUT': return 'text-amber-400 bg-amber-950/80 border-amber-800/60';
-      case 'DELETE': return 'text-rose-400 bg-rose-950/80 border-rose-800/60';
-      case 'PATCH': return 'text-purple-400 bg-purple-950/80 border-purple-800/60';
-      default: return 'text-slate-400 bg-slate-800 border-slate-700';
+      case 'GET': return 'text-apple-primary-on-dark bg-apple-surface-tile-3 border-apple-hairline-dark/60';
+      case 'POST': return 'text-emerald-400 bg-apple-surface-tile-3 border-apple-hairline-dark/60';
+      case 'PUT': return 'text-amber-400 bg-apple-surface-tile-3 border-apple-hairline-dark/60';
+      case 'DELETE': return 'text-rose-400 bg-apple-surface-tile-3 border-apple-hairline-dark/60';
+      case 'PATCH': return 'text-purple-400 bg-apple-surface-tile-3 border-apple-hairline-dark/60';
+      default: return 'text-apple-body-muted bg-apple-surface-tile-3 border-apple-hairline-dark/60';
     }
   }
 
@@ -49,11 +49,11 @@
         </span>
 
         <!-- Tab Title -->
-        <span class="truncate max-w-[130px]">{req.name}</span>
+        <span class="truncate max-w-[130px] font-sans">{req.name}</span>
 
         <!-- Dirty Indicator -->
         {#if req.isDirty}
-          <span class="w-1.5 h-1.5 rounded-apple-full bg-amber-400 shrink-0" title="Unsaved changes"></span>
+          <span class="w-1.5 h-1.5 rounded-apple-full bg-apple-primary-on-dark shrink-0" title="Unsaved changes"></span>
         {/if}
 
         <!-- Close Button -->

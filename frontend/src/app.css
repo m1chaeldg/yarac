@@ -34,7 +34,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Apple typography display classes */
+/* ==========================================================================
+   Apple Typography Scale (DESIGN.md Section 2)
+   SF Pro Display for display >= 19px; SF Pro Text for body / UI < 20px
+   Weight 500 is deliberately absent: ladder is 300 / 400 / 600 / 700
+   ========================================================================== */
+
 .apple-hero-display {
   font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 56px;
@@ -57,6 +62,22 @@ body {
   font-weight: 600;
   line-height: 1.47;
   letter-spacing: -0.374px;
+}
+
+.apple-lead {
+  font-family: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.14;
+  letter-spacing: 0.196px;
+}
+
+.apple-lead-airy {
+  font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 1.5;
+  letter-spacing: 0;
 }
 
 .apple-tagline {
@@ -83,6 +104,14 @@ body {
   letter-spacing: -0.374px;
 }
 
+.apple-dense-link {
+  font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 2.41;
+  letter-spacing: 0;
+}
+
 .apple-caption {
   font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 14px;
@@ -99,23 +128,84 @@ body {
   letter-spacing: -0.224px;
 }
 
-/* Apple micro-interaction: scale(0.95) on button active */
-button, input[type="button"], input[type="submit"] {
-  transition: transform 0.08s ease, background-color 0.15s ease, opacity 0.15s ease;
+.apple-button-large {
+  font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1.0;
+  letter-spacing: 0;
 }
 
-button:active:not(:disabled), input[type="button"]:active:not(:disabled), input[type="submit"]:active:not(:disabled) {
+.apple-button-utility {
+  font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.29;
+  letter-spacing: -0.224px;
+}
+
+.apple-fine-print {
+  font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.0;
+  letter-spacing: -0.12px;
+}
+
+.apple-micro-legal {
+  font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: -0.08px;
+}
+
+.apple-nav-link {
+  font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.0;
+  letter-spacing: -0.12px;
+}
+
+/* ==========================================================================
+   Apple Micro-Interactions (DESIGN.md)
+   System-wide transform: scale(0.95) on button active
+   ========================================================================== */
+button, input[type="button"], input[type="submit"] {
+  transition: transform 0.08s ease, background-color 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+}
+
+button:active:not(:disabled),
+input[type="button"]:active:not(:disabled),
+input[type="submit"]:active:not(:disabled),
+[role="button"]:active:not([aria-disabled="true"]) {
   transform: scale(0.95);
 }
 
-/* Apple Button Components */
+/* ==========================================================================
+   Apple Button Components (DESIGN.md Section 6)
+   - button-primary: Action Blue (#0066cc) + Pill radius (9999px)
+   - button-secondary-pill: Transparent + Action Blue border & text
+   - button-dark-utility: Ink (#1d1d1f) + rounded 8px
+   - button-pearl-capsule: Pearl (#fafafc) + rounded 11px
+   - button-icon-circular: Translucent chip (44x44px or toolbar sized)
+   ========================================================================== */
+
 .apple-button-primary {
   background-color: var(--apple-primary);
   color: #ffffff;
   border-radius: 9999px;
   font-weight: 600;
-  transition: background-color 0.15s ease, transform 0.08s ease;
+  padding: 8px 18px;
   outline: none;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: none !important;
 }
 
 .apple-button-primary:hover:not(:disabled) {
@@ -133,57 +223,166 @@ button:active:not(:disabled), input[type="button"]:active:not(:disabled), input[
   border: 1px solid var(--apple-primary);
   border-radius: 9999px;
   font-weight: 400;
+  padding: 8px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: none !important;
 }
 
 .apple-button-secondary-pill:hover:not(:disabled) {
-  background-color: rgba(0, 102, 204, 0.08);
+  background-color: rgba(0, 102, 204, 0.10);
 }
 
 .apple-button-dark-utility {
-  background-color: var(--apple-ink);
-  color: #ffffff;
+  background-color: var(--apple-surface-tile-2);
+  color: var(--apple-body-on-dark);
   border-radius: 8px;
   font-size: 14px;
   letter-spacing: -0.224px;
+  padding: 7px 14px;
+  border: 1px solid var(--apple-hairline-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: none !important;
 }
 
 .apple-button-dark-utility:hover:not(:disabled) {
-  background-color: #2c2c2e;
+  background-color: var(--apple-surface-tile-1);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.apple-button-pearl {
+.apple-button-pearl-capsule {
   background-color: var(--apple-surface-pearl);
   color: var(--apple-ink-muted-80);
   border-radius: 11px;
   border: 1px solid var(--apple-divider-soft);
+  padding: 8px 14px;
+  cursor: pointer;
+  box-shadow: none !important;
 }
 
-/* Apple Pill inputs & search */
+.apple-button-icon-circular {
+  background-color: var(--apple-surface-chip-translucent);
+  color: var(--apple-body-on-dark);
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid transparent;
+  box-shadow: none !important;
+}
+
+.apple-button-icon-circular:hover:not(:disabled) {
+  background-color: rgba(210, 210, 215, 0.85);
+  color: #000000;
+}
+
+.apple-text-link {
+  color: var(--apple-primary);
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.apple-text-link:hover {
+  text-decoration: underline;
+}
+
+.apple-text-link-on-dark {
+  color: var(--apple-primary-on-dark);
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.apple-text-link-on-dark:hover {
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   Apple Inputs & Search (DESIGN.md)
+   ========================================================================== */
+
 .apple-input-pill {
   border-radius: 9999px;
   background-color: var(--apple-surface-tile-1);
   border: 1px solid var(--apple-hairline-dark);
-  color: #ffffff;
+  color: var(--apple-body-on-dark);
   outline: none;
   transition: border-color 0.15s ease;
+  box-shadow: none !important;
 }
 
 .apple-input-pill:focus {
   border-color: var(--apple-primary-focus);
 }
 
-/* Apple Cards / Tiles */
-.apple-card-light {
-  background-color: var(--apple-canvas);
-  color: var(--apple-ink);
-  border: 1px solid var(--apple-hairline);
-  border-radius: 18px;
+.apple-search-input {
+  border-radius: 9999px;
+  background-color: var(--apple-surface-tile-1);
+  border: 1px solid var(--apple-hairline-dark);
+  color: var(--apple-body-on-dark);
+  padding: 10px 18px;
+  height: 44px;
+  font-size: 14px;
+  letter-spacing: -0.224px;
+  outline: none;
+  transition: border-color 0.15s ease;
+  box-shadow: none !important;
 }
 
-.apple-tile-dark {
+.apple-search-input:focus {
+  border-color: var(--apple-primary-focus);
+}
+
+/* ==========================================================================
+   Apple Containers, Modals & Utility Cards (DESIGN.md Section 5 & 6)
+   - Modals: rounded 18px (apple-lg), hairline border, surface-tile-1, NO shadow!
+   - Store utility card: rounded 18px (apple-lg), hairline border
+   ========================================================================== */
+
+.apple-modal-card {
   background-color: var(--apple-surface-tile-1);
-  color: #ffffff;
   border: 1px solid var(--apple-hairline-dark);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+
+.apple-store-utility-card {
+  background-color: var(--apple-surface-tile-1);
+  border: 1px solid var(--apple-hairline-dark);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: none !important;
+}
+
+.apple-frosted-glass {
+  background-color: rgba(39, 39, 41, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.apple-frosted-backdrop {
+  background-color: rgba(0, 0, 0, 0.70);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Signature Apple Product Shadow (Only true shadow in system, for imagery) */
+.apple-product-shadow {
+  box-shadow: 3px 5px 30px 0 rgba(0, 0, 0, 0.22);
 }
 
 /* Minimalist Apple-style scrollbar */
@@ -202,5 +401,6 @@ button:active:not(:disabled), input[type="button"]:active:not(:disabled), input[
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.32);
 }
+

@@ -127,15 +127,15 @@
 
 <div class="h-full flex flex-col space-y-3 font-sans text-xs">
   <!-- Body Type Selector & Action Toolbar -->
-  <div class="flex items-center justify-between shrink-0 flex-wrap gap-2 pb-1 border-b border-slate-800/80">
+  <div class="flex items-center justify-between shrink-0 flex-wrap gap-2 pb-1 border-b border-apple-hairline-dark/60">
     <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-xs text-slate-400 font-medium">Body Type:</span>
+      <span class="text-xs text-apple-body-muted font-medium">Body Type:</span>
       <div class="flex items-center gap-1.5 flex-wrap">
         {#each ['none', 'json', 'xml', 'text', 'form-urlencoded', 'multipart', 'binary'] as bType}
           <button
             type="button"
             onclick={() => switchBodyType(bType as BodyType)}
-            class="px-2.5 py-1 rounded text-xs font-medium transition-all {req.body.type === bType ? 'bg-sky-600/30 text-sky-300 border border-sky-500/50 shadow-sm shadow-sky-950' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'}"
+            class="px-3 py-1 rounded-apple-pill text-xs font-medium transition-all {req.body.type === bType ? 'apple-button-primary font-semibold text-white shadow-none' : 'apple-button-dark-utility bg-apple-surface-tile-3 border border-apple-hairline-dark/60 text-apple-body-muted hover:text-white'}"
           >
             {bType}
           </button>
@@ -146,7 +146,7 @@
     <!-- Toolbar Actions -->
     <div class="flex items-center gap-2">
       {#if bodyActionFeedback}
-        <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-300 font-mono">
+        <span class="text-[11px] px-2.5 py-0.5 rounded-apple-pill bg-apple-surface-tile-3 border border-apple-hairline-dark/60 text-apple-primary-on-dark font-mono">
           {bodyActionFeedback}
         </span>
       {/if}
@@ -155,18 +155,18 @@
         <button
           type="button"
           onclick={() => formatOrCompressBody('format')}
-          class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-medium flex items-center gap-1 transition-colors"
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-on-dark border border-apple-hairline-dark/60 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
           title="Format / Prettify payload"
         >
-          <span class="text-amber-400">✨</span> Format
+          <span>✨</span> Format
         </button>
         <button
           type="button"
           onclick={() => formatOrCompressBody('compress')}
-          class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-medium flex items-center gap-1 transition-colors"
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-on-dark border border-apple-hairline-dark/60 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
           title="Minify / Compress payload"
         >
-          <span class="text-sky-400">⚡</span> Compress
+          <span>⚡</span> Compress
         </button>
         <button
           type="button"
@@ -176,7 +176,7 @@
               feedback('Copied to clipboard');
             }
           }}
-          class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 text-xs transition-colors"
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-muted hover:text-white border border-apple-hairline-dark/60 text-xs transition-colors cursor-pointer"
           title="Copy body to clipboard"
         >
           📋 Copy
@@ -186,14 +186,14 @@
         <button
           type="button"
           onclick={() => addFormData('text')}
-          class="px-2 py-1 rounded bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 border border-sky-500/40 text-xs font-medium flex items-center gap-1"
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-primary-on-dark border border-apple-hairline-dark/60 text-xs font-medium flex items-center gap-1 cursor-pointer"
         >
           + Add Field
         </button>
         <button
           type="button"
           onclick={cleanFormData}
-          class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 text-xs"
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-muted hover:text-white border border-apple-hairline-dark/60 text-xs cursor-pointer"
         >
           Clean / Trim
         </button>
@@ -202,21 +202,21 @@
         <button
           type="button"
           onclick={() => addFormData('text')}
-          class="px-2 py-1 rounded bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 border border-sky-500/40 text-xs font-medium flex items-center gap-1"
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-primary-on-dark border border-apple-hairline-dark/60 text-xs font-medium flex items-center gap-1 cursor-pointer"
         >
           + Text Field
         </button>
         <button
           type="button"
           onclick={() => addFormData('file')}
-          class="px-2 py-1 rounded bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/40 text-xs font-medium flex items-center gap-1"
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-primary-on-dark border border-apple-hairline-dark/60 text-xs font-medium flex items-center gap-1 cursor-pointer"
         >
           📁 + File Upload
         </button>
         <button
           type="button"
           onclick={cleanFormData}
-          class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 text-xs"
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-muted hover:text-white border border-apple-hairline-dark/60 text-xs cursor-pointer"
         >
           Clean / Trim
         </button>
@@ -226,17 +226,17 @@
 
   <!-- JSON / XML / TEXT EDITOR -->
   {#if req.body.type === 'json' || req.body.type === 'xml' || req.body.type === 'text' || req.body.type === 'raw'}
-    <div class="flex-1 flex flex-col border border-slate-800 rounded-lg overflow-hidden bg-slate-950 min-h-[260px]">
-      <div class="bg-slate-900/60 px-3 py-1.5 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+    <div class="flex-1 flex flex-col border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-black min-h-[260px]">
+      <div class="bg-apple-surface-tile-2 px-3 py-1.5 border-b border-apple-hairline-dark/60 flex items-center justify-between text-[11px] text-apple-body-muted">
         <div class="flex items-center gap-2">
-          <span class="font-semibold text-slate-300">
+          <span class="font-semibold text-apple-body-on-dark">
             {req.body.type === 'json' ? 'JSON Payload' : req.body.type === 'xml' ? 'XML Document' : 'Plain Text Payload'}
           </span>
-          <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800/80 text-sky-400 font-mono">
+          <span class="text-[10px] px-2 py-0.5 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark font-mono border border-apple-hairline-dark/60">
             {req.body.type === 'json' ? 'application/json' : req.body.type === 'xml' ? 'application/xml' : 'text/plain'}
           </span>
         </div>
-        <div class="flex items-center gap-3 font-mono text-slate-500 text-[10px]">
+        <div class="flex items-center gap-3 font-mono text-apple-ink-muted-48 text-[10px]">
           <span>{(req.body.rawContent || '').split('\n').length} lines</span>
           <span>{(req.body.rawContent || '').length} chars</span>
         </div>
@@ -245,7 +245,7 @@
         bind:value={req.body.rawContent}
         oninput={() => workspaceStore.updateActiveRequest({ body: req.body })}
         placeholder={req.body.type === 'json' ? '{\n  "key": "value"\n}' : req.body.type === 'xml' ? '<root>\n  <item>value</item>\n</root>' : 'Raw body content'}
-        class="flex-1 w-full bg-slate-950 p-3 font-mono text-xs text-slate-100 resize-none focus:outline-none leading-relaxed"
+        class="flex-1 w-full bg-apple-surface-black p-3 font-mono text-xs text-apple-body-on-dark resize-none focus:outline-none leading-relaxed"
         spellcheck="false"
       ></textarea>
     </div>
@@ -253,50 +253,50 @@
   <!-- FORM-URLENCODED -->
   {:else if req.body.type === 'form-urlencoded'}
     <div class="space-y-2 flex-1 flex flex-col">
-      <div class="border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
+      <div class="border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-black">
         <table class="w-full border-collapse text-left font-mono text-xs">
           <thead>
-            <tr class="bg-slate-900/80 text-slate-400 border-b border-slate-800 text-[11px]">
+            <tr class="bg-apple-surface-tile-2 text-apple-body-muted border-b border-apple-hairline-dark/60 text-[11px]">
               <th class="w-8 p-2 text-center"></th>
-              <th class="p-2 border-r border-slate-800">Parameter Key</th>
-              <th class="p-2 border-r border-slate-800">Parameter Value</th>
+              <th class="p-2 border-r border-apple-hairline-dark/60">Parameter Key</th>
+              <th class="p-2 border-r border-apple-hairline-dark/60">Parameter Value</th>
               <th class="w-10 p-2 text-center"></th>
             </tr>
           </thead>
           <tbody>
             {#each (req.body.formData || []) as item, idx (item.id)}
-              <tr class="border-b border-slate-800/80 hover:bg-slate-900/30">
+              <tr class="border-b border-apple-hairline-dark/40 hover:bg-apple-surface-tile-1/50 transition-colors">
                 <td class="p-2 text-center">
                   <input
                     type="checkbox"
                     bind:checked={item.enabled}
                     onchange={() => workspaceStore.updateActiveRequest({ body: req.body })}
-                    class="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0"
+                    class="rounded-apple-xs bg-apple-surface-tile-3 border-apple-hairline-dark/80 text-apple-primary focus:ring-0"
                   />
                 </td>
-                <td class="p-1 border-r border-slate-800">
+                <td class="p-1 border-r border-apple-hairline-dark/60">
                   <input
                     type="text"
                     bind:value={item.key}
                     placeholder="param_name"
                     oninput={() => workspaceStore.updateActiveRequest({ body: req.body })}
-                    class="w-full bg-transparent px-2 py-1 text-sky-300 focus:outline-none"
+                    class="w-full bg-transparent px-2 py-1 text-apple-primary-on-dark focus:outline-none placeholder:text-apple-ink-muted-48"
                   />
                 </td>
-                <td class="p-1 border-r border-slate-800">
+                <td class="p-1 border-r border-apple-hairline-dark/60">
                   <input
                     type="text"
                     bind:value={item.value}
                     placeholder="value"
                     oninput={() => workspaceStore.updateActiveRequest({ body: req.body })}
-                    class="w-full bg-transparent px-2 py-1 text-slate-200 focus:outline-none"
+                    class="w-full bg-transparent px-2 py-1 text-apple-body-on-dark focus:outline-none placeholder:text-apple-ink-muted-48"
                   />
                 </td>
                 <td class="p-2 text-center">
                   <button
                     type="button"
                     onclick={() => removeFormData(idx)}
-                    class="text-slate-500 hover:text-rose-400"
+                    class="text-apple-ink-muted-48 hover:text-rose-400 transition-colors"
                   >
                     ✕
                   </button>
@@ -305,7 +305,7 @@
             {/each}
             {#if (!req.body.formData || req.body.formData.length === 0)}
               <tr>
-                <td colspan="4" class="p-6 text-center text-slate-500 font-sans">
+                <td colspan="4" class="p-6 text-center text-apple-ink-muted-48 font-sans">
                   No URL-encoded fields defined. Click "+ Add Field" above.
                 </td>
               </tr>
@@ -324,53 +324,53 @@
         onchange={onMultipartFileInputChange}
         class="hidden"
       />
-      <div class="border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
+      <div class="border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-black">
         <table class="w-full border-collapse text-left font-mono text-xs">
           <thead>
-            <tr class="bg-slate-900/80 text-slate-400 border-b border-slate-800 text-[11px]">
+            <tr class="bg-apple-surface-tile-2 text-apple-body-muted border-b border-apple-hairline-dark/60 text-[11px]">
               <th class="w-8 p-2 text-center"></th>
-              <th class="p-2 border-r border-slate-800 w-1/4">Field Name</th>
-              <th class="p-2 border-r border-slate-800 w-24 text-center">Type</th>
-              <th class="p-2 border-r border-slate-800">Value / File Path</th>
+              <th class="p-2 border-r border-apple-hairline-dark/60 w-1/4">Field Name</th>
+              <th class="p-2 border-r border-apple-hairline-dark/60 w-24 text-center">Type</th>
+              <th class="p-2 border-r border-apple-hairline-dark/60">Value / File Path</th>
               <th class="w-10 p-2 text-center"></th>
             </tr>
           </thead>
           <tbody>
             {#each (req.body.formData || []) as item, idx (item.id)}
-              <tr class="border-b border-slate-800/80 hover:bg-slate-900/30">
+              <tr class="border-b border-apple-hairline-dark/40 hover:bg-apple-surface-tile-1/50 transition-colors">
                 <td class="p-2 text-center">
                   <input
                     type="checkbox"
                     bind:checked={item.enabled}
                     onchange={() => workspaceStore.updateActiveRequest({ body: req.body })}
-                    class="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0"
+                    class="rounded-apple-xs bg-apple-surface-tile-3 border-apple-hairline-dark/80 text-apple-primary focus:ring-0"
                   />
                 </td>
-                <td class="p-1 border-r border-slate-800">
+                <td class="p-1 border-r border-apple-hairline-dark/60">
                   <input
                     type="text"
                     bind:value={item.key}
                     placeholder="field_name"
                     oninput={() => workspaceStore.updateActiveRequest({ body: req.body })}
-                    class="w-full bg-transparent px-2 py-1 text-sky-300 focus:outline-none"
+                    class="w-full bg-transparent px-2 py-1 text-apple-primary-on-dark focus:outline-none placeholder:text-apple-ink-muted-48"
                   />
                 </td>
-                <td class="p-1 border-r border-slate-800 text-center font-sans">
+                <td class="p-1 border-r border-apple-hairline-dark/60 text-center font-sans">
                   <button
                     type="button"
                     onclick={() => {
                       item.type = item.type === 'file' ? 'text' : 'file';
                       workspaceStore.updateActiveRequest({ body: req.body });
                     }}
-                    class="px-2 py-0.5 rounded text-[11px] font-semibold {item.type === 'file' ? 'bg-purple-950/80 text-purple-300 border border-purple-800/60' : 'bg-slate-800 text-slate-300 border border-slate-700'}"
+                    class="apple-button-dark-utility px-2 py-0.5 rounded-apple-sm text-[11px] font-semibold border border-apple-hairline-dark/60 {item.type === 'file' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark' : 'bg-apple-surface-tile-1 text-apple-body-muted'}"
                   >
                     {item.type === 'file' ? '📁 File' : 'Aa Text'}
                   </button>
                 </td>
-                <td class="p-1 border-r border-slate-800">
+                <td class="p-1 border-r border-apple-hairline-dark/60">
                   {#if item.type === 'file'}
                     <div class="flex items-center gap-1.5 px-1">
-                      <span class="text-purple-400 font-mono text-[11px]">@</span>
+                      <span class="text-apple-primary-on-dark font-mono text-[11px]">@</span>
                       <input
                         type="text"
                         value={item.value.startsWith('@') ? item.value.slice(1) : item.value}
@@ -379,12 +379,12 @@
                           workspaceStore.updateActiveRequest({ body: req.body });
                         }}
                         placeholder="Relative path e.g. ./fixtures/avatar.png"
-                        class="w-full bg-transparent py-1 text-purple-200 focus:outline-none font-mono text-xs"
+                        class="w-full bg-transparent py-1 text-apple-body-on-dark focus:outline-none font-mono text-xs placeholder:text-apple-ink-muted-48"
                       />
                       <button
                         type="button"
                         onclick={() => triggerMultipartFileBrowse(idx)}
-                        class="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 border border-purple-800/60 text-purple-200 text-[11px] font-sans font-medium whitespace-nowrap cursor-pointer shrink-0"
+                        class="apple-button-dark-utility px-2 py-0.5 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 border border-apple-hairline-dark/60 text-apple-primary-on-dark text-[11px] font-sans font-medium whitespace-nowrap cursor-pointer shrink-0"
                       >
                         📁 Browse...
                       </button>
@@ -395,7 +395,7 @@
                       bind:value={item.value}
                       placeholder="value"
                       oninput={() => workspaceStore.updateActiveRequest({ body: req.body })}
-                      class="w-full bg-transparent px-2 py-1 text-slate-200 focus:outline-none"
+                      class="w-full bg-transparent px-2 py-1 text-apple-body-on-dark focus:outline-none placeholder:text-apple-ink-muted-48"
                     />
                   {/if}
                 </td>
@@ -403,7 +403,7 @@
                   <button
                     type="button"
                     onclick={() => removeFormData(idx)}
-                    class="text-slate-500 hover:text-rose-400"
+                    class="text-apple-ink-muted-48 hover:text-rose-400 transition-colors"
                   >
                     ✕
                   </button>
@@ -413,14 +413,14 @@
           </tbody>
         </table>
       </div>
-      <p class="text-[11px] text-slate-500 font-sans">
-        💡 <span class="font-medium text-slate-400">Relative Path Anchoring:</span> File uploads strictly resolve relative to workspace root (e.g. <code class="text-purple-300 font-mono">./fixtures/avatar.png</code>).
+      <p class="text-[11px] text-apple-ink-muted-48 font-sans">
+        💡 <span class="font-medium text-apple-body-muted">Relative Path Anchoring:</span> File uploads strictly resolve relative to workspace root (e.g. <code class="text-apple-primary-on-dark font-mono">./fixtures/avatar.png</code>).
       </p>
     </div>
 
   <!-- BINARY FILE UPLOAD -->
   {:else if req.body.type === 'binary'}
-    <div class="space-y-4 max-w-2xl bg-slate-900/40 p-5 border border-slate-800 rounded-lg">
+    <div class="space-y-4 max-w-2xl bg-apple-surface-tile-2 p-5 border border-apple-hairline-dark/60 rounded-apple-lg">
       <input
         type="file"
         bind:this={binaryFileInput}
@@ -429,8 +429,8 @@
       />
       <div class="flex items-start justify-between">
         <div>
-          <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider block">Binary File Payload</span>
-          <p class="text-[11px] text-slate-500 mt-1">
+          <span class="text-xs font-semibold text-apple-body-on-dark uppercase tracking-wider block">Binary File Payload</span>
+          <p class="text-[11px] text-apple-ink-muted-48 mt-1">
             Upload raw file content directly as request body. Resolves relative to workspace root.
           </p>
         </div>
@@ -438,7 +438,7 @@
           <button
             type="button"
             onclick={clearBinaryFile}
-            class="text-[11px] text-slate-500 hover:text-rose-400 flex items-center gap-1 cursor-pointer"
+            class="text-[11px] text-apple-ink-muted-48 hover:text-rose-400 flex items-center gap-1 cursor-pointer transition-colors"
           >
             ✕ Clear File
           </button>
@@ -451,26 +451,26 @@
         ondragover={(e) => { e.preventDefault(); isBinaryDragging = true; }}
         ondragleave={() => { isBinaryDragging = false; }}
         ondrop={handleBinaryDrop}
-        class="border-2 border-dashed rounded-lg p-5 text-center {isBinaryDragging ? 'border-sky-500 bg-sky-500/10' : req.body.binaryFilePath ? 'border-slate-700 bg-slate-950/60' : 'border-slate-800 hover:border-slate-700 bg-slate-950/30'}"
+        class="border-2 border-dashed rounded-apple-lg p-5 text-center transition-colors {isBinaryDragging ? 'border-apple-primary bg-apple-primary/10' : req.body.binaryFilePath ? 'border-apple-hairline-dark bg-apple-surface-black' : 'border-apple-hairline-dark/60 hover:border-apple-hairline-dark bg-apple-surface-tile-1'}"
       >
         {#if req.body.binaryFilePath}
           <div class="flex items-center justify-between gap-4 text-left">
             <div class="flex items-center gap-3 min-w-0">
-              <div class="w-10 h-10 rounded bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-xl shrink-0">
+              <div class="w-10 h-10 rounded-apple-md bg-apple-surface-tile-3 border border-apple-hairline-dark/60 flex items-center justify-center text-xl shrink-0">
                 📦
               </div>
               <div class="min-w-0">
                 <div class="flex items-center gap-2">
-                  <span class="font-mono text-xs font-semibold text-sky-300 truncate">
+                  <span class="font-mono text-xs font-semibold text-apple-primary-on-dark truncate">
                     {binarySelectedFileInfo?.name || req.body.binaryFilePath.split(/[/\\]/).pop()}
                   </span>
                   {#if binarySelectedFileInfo?.size}
-                    <span class="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-mono">
+                    <span class="text-[10px] text-apple-body-muted bg-apple-surface-tile-3 border border-apple-hairline-dark/60 px-1.5 py-0.5 rounded-apple-sm font-mono">
                       {formatSize(binarySelectedFileInfo.size)}
                     </span>
                   {/if}
                 </div>
-                <p class="text-[11px] text-slate-500 font-mono truncate mt-0.5">
+                <p class="text-[11px] text-apple-ink-muted-48 font-mono truncate mt-0.5">
                   {req.body.binaryFilePath}
                 </p>
               </div>
@@ -478,7 +478,7 @@
             <button
               type="button"
               onclick={() => binaryFileInput?.click()}
-              class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 cursor-pointer"
+              class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-on-dark text-xs font-medium border border-apple-hairline-dark/60 cursor-pointer"
             >
               📁 Change File...
             </button>
@@ -486,17 +486,17 @@
         {:else}
           <div class="space-y-2 py-4">
             <div class="text-3xl">📁</div>
-            <div class="text-xs text-slate-300">
+            <div class="text-xs text-apple-body-muted">
               Drag and drop your file here, or
               <button
                 type="button"
                 onclick={() => binaryFileInput?.click()}
-                class="text-sky-400 hover:underline font-semibold ml-1 cursor-pointer"
+                class="text-apple-primary-on-dark hover:underline font-semibold ml-1 cursor-pointer"
               >
                 browse local files
               </button>
             </div>
-            <p class="text-[11px] text-slate-500 font-mono">
+            <p class="text-[11px] text-apple-ink-muted-48 font-mono">
               Payload is anchored relative to workspace
             </p>
           </div>
@@ -504,7 +504,7 @@
       </div>
     </div>
   {:else}
-    <div class="p-8 text-center text-slate-500 italic">
+    <div class="p-8 text-center text-apple-ink-muted-48 italic">
       No body payload configured for this request.
     </div>
   {/if}

@@ -62,11 +62,11 @@
     onkeydown={(e) => e.stopPropagation()}
     role="menu"
     tabindex="-1"
-    class="fixed z-50 w-60 bg-slate-900 border border-slate-700/80 rounded-lg shadow-2xl shadow-black/80 py-1.5 text-xs text-slate-200 select-none animate-in fade-in zoom-in-95 duration-100 backdrop-blur-md"
+    class="fixed z-50 w-60 bg-apple-surface-tile-2 border border-apple-hairline-dark rounded-apple-md py-1 text-xs text-apple-body-on-dark select-none animate-in fade-in zoom-in-95 duration-100 apple-frosted-glass font-sans"
   >
     {#each items as item (item.id)}
       {#if item.separator}
-        <div class="my-1 border-t border-slate-800" role="separator"></div>
+        <div class="my-1 border-t border-apple-hairline-dark/60" role="separator"></div>
       {:else}
         <button
           type="button"
@@ -75,10 +75,10 @@
             onClose();
             item.action();
           }}
-          class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 transition-colors
+          class="w-[calc(100%-8px)] mx-1 text-left px-2.5 py-1.5 rounded-apple-xs flex items-center justify-between gap-2 transition-colors
             {item.danger
-              ? 'text-rose-400 hover:bg-rose-950/60 hover:text-rose-200'
-              : 'hover:bg-sky-600/20 hover:text-white'}"
+              ? 'text-rose-400 hover:bg-rose-950/40 hover:text-rose-300'
+              : 'hover:bg-apple-primary/20 hover:text-white'}"
         >
           <div class="flex items-center gap-2.5 truncate">
             {#if item.icon}
@@ -88,7 +88,7 @@
           </div>
 
           {#if item.shortcut}
-            <span class="text-[10px] font-mono text-slate-500 shrink-0 uppercase tracking-wider">{item.shortcut}</span>
+            <span class="text-[10px] font-mono text-apple-ink-muted-48 shrink-0 uppercase tracking-wider">{item.shortcut}</span>
           {/if}
         </button>
       {/if}

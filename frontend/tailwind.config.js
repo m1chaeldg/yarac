@@ -28,18 +28,38 @@ export default {
           'surface-tile-2': '#2a2a2c',
           'surface-tile-3': '#252527',
           'surface-black': '#000000',
-          'surface-chip-translucent': '#d2d2d7',
+          'surface-chip-translucent': 'rgba(210, 210, 215, 0.64)',
           'on-primary': '#ffffff',
           'on-dark': '#ffffff',
         },
-        brand: {
-          50: '#f0f9ff',
-          500: '#0066cc',
-          600: '#0071e3',
-          900: '#1d1d1f'
-        }
+        // Aliases to guarantee no non-Apple slate or sky leaks
+        slate: {
+          50: '#fafafc',
+          100: '#ffffff',
+          200: '#e5e5ea',
+          300: '#cccccc',
+          400: '#a1a1a6',
+          500: '#7a7a7a',
+          600: '#48484a',
+          700: '#3a3a3c',
+          800: '#2a2a2c',
+          850: '#272729',
+          900: '#252527',
+          950: '#000000',
+        },
+        sky: {
+          300: '#70baff',
+          400: '#2997ff',
+          500: '#0071e3',
+          600: '#0066cc',
+          700: '#0055b3',
+          800: '#004494',
+          900: '#003375',
+          950: 'rgba(0, 102, 204, 0.15)',
+        },
       },
       borderRadius: {
+        'apple-none': '0px',
         'apple-xs': '5px',
         'apple-sm': '8px',
         'apple-md': '11px',
@@ -47,10 +67,21 @@ export default {
         'apple-pill': '9999px',
         'apple-full': '9999px',
       },
+      spacing: {
+        'apple-xxs': '4px',
+        'apple-xs': '8px',
+        'apple-sm': '12px',
+        'apple-md': '17px',
+        'apple-lg': '24px',
+        'apple-xl': '32px',
+        'apple-xxl': '48px',
+        'apple-section': '80px',
+      },
       fontFamily: {
         sans: ['"SF Pro Text"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
         'apple-display': ['"SF Pro Display"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
         'apple-text': ['"SF Pro Text"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace'],
       },
       letterSpacing: {
         'apple-tight': '-0.02em',
@@ -58,7 +89,13 @@ export default {
         'apple-headline': '-0.374px',
         'apple-caption': '-0.224px',
         'apple-fine': '-0.12px',
-      }
+        'apple-micro': '-0.08px',
+      },
+      boxShadow: {
+        // Exactly ONE drop shadow exists in the entire system, strictly for product imagery
+        'apple-product': '3px 5px 30px 0 rgba(0, 0, 0, 0.22)',
+        'none': 'none',
+      },
     },
   },
   plugins: [],

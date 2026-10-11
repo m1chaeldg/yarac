@@ -24,18 +24,18 @@
 
 <div class="h-full flex flex-col space-y-3 font-sans">
   <div class="flex items-center justify-between shrink-0">
-    <div class="flex items-center gap-1.5 bg-slate-900 border border-slate-800 p-0.5 rounded-lg">
+    <div class="flex items-center gap-1.5 bg-apple-surface-tile-2 border border-apple-hairline-dark/60 p-0.5 rounded-apple-sm">
       <button
         type="button"
         onclick={() => activeScriptType = 'preRequest'}
-        class="px-3 py-1 rounded text-xs font-semibold transition-colors {activeScriptType === 'preRequest' ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 cursor-pointer'}"
+        class="px-3 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeScriptType === 'preRequest' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white cursor-pointer'}"
       >
         Pre-request Script
       </button>
       <button
         type="button"
         onclick={() => activeScriptType = 'postResponse'}
-        class="px-3 py-1 rounded text-xs font-semibold transition-colors {activeScriptType === 'postResponse' ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 cursor-pointer'}"
+        class="px-3 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeScriptType === 'postResponse' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white cursor-pointer'}"
       >
         Post-response Script
       </button>
@@ -43,13 +43,13 @@
 
     <!-- Snippets Quick Bar -->
     <div class="flex items-center gap-1.5 flex-wrap">
-      <span class="text-[10px] text-slate-500">Insert Snippet:</span>
+      <span class="text-[10px] text-apple-ink-muted-48">Insert Snippet:</span>
       {#if activeScriptType === 'preRequest'}
         {#each SCRIPT_SNIPPETS.preRequest as s}
           <button
             type="button"
             onclick={() => insertScriptSnippet(s.snippet)}
-            class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono text-indigo-300 transition-colors cursor-pointer"
+            class="apple-button-dark-utility px-2 py-0.5 rounded-apple-sm border border-apple-hairline-dark/60 text-[10px] font-mono text-apple-primary-on-dark transition-colors cursor-pointer"
           >
             {s.label}
           </button>
@@ -59,7 +59,7 @@
           <button
             type="button"
             onclick={() => insertScriptSnippet(s.snippet)}
-            class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono text-indigo-300 transition-colors cursor-pointer"
+            class="apple-button-dark-utility px-2 py-0.5 rounded-apple-sm border border-apple-hairline-dark/60 text-[10px] font-mono text-apple-primary-on-dark transition-colors cursor-pointer"
           >
             {s.label}
           </button>
@@ -68,12 +68,12 @@
     </div>
   </div>
 
-  <div class="flex-1 flex flex-col border border-slate-800 rounded-lg overflow-hidden bg-slate-950 min-h-[220px]">
-    <div class="bg-slate-900/60 px-3 py-1.5 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-      <span class="font-mono text-indigo-400">
+  <div class="flex-1 flex flex-col border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-black min-h-[220px]">
+    <div class="bg-apple-surface-tile-2 px-3 py-1.5 border-b border-apple-hairline-dark/60 flex items-center justify-between text-[11px] text-apple-body-muted">
+      <span class="font-mono text-apple-primary-on-dark">
         {activeScriptType === 'preRequest' ? '// Runs before HTTP request is dispatched' : '// Runs immediately after HTTP response is received'}
       </span>
-      <span class="text-slate-500 font-mono text-[10px]">Async/Await Default • Isolated Deno Core (5000ms max)</span>
+      <span class="text-apple-ink-muted-48 font-mono text-[10px]">Async/Await Default • Isolated Deno Core (5000ms max)</span>
     </div>
 
     {#if activeScriptType === 'preRequest'}
@@ -85,7 +85,7 @@
           workspaceStore.updateActiveRequest({ scripts: req.scripts });
         }}
         placeholder={SCRIPT_PLACEHOLDERS.preRequest}
-        class="flex-1 w-full bg-slate-950 p-3 font-mono text-xs text-indigo-100 resize-none focus:outline-none"
+        class="flex-1 w-full bg-apple-surface-black p-3 font-mono text-xs text-apple-body-on-dark resize-none focus:outline-none"
       ></textarea>
     {:else}
       <textarea
@@ -96,7 +96,7 @@
           workspaceStore.updateActiveRequest({ scripts: req.scripts });
         }}
         placeholder={SCRIPT_PLACEHOLDERS.postResponse}
-        class="flex-1 w-full bg-slate-950 p-3 font-mono text-xs text-indigo-100 resize-none focus:outline-none"
+        class="flex-1 w-full bg-apple-surface-black p-3 font-mono text-xs text-apple-body-on-dark resize-none focus:outline-none"
       ></textarea>
     {/if}
   </div>

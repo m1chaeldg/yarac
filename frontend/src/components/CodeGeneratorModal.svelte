@@ -69,12 +69,12 @@
 
 {#if isOpen && request}
 <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+    class="fixed inset-0 z-50 flex items-center justify-center apple-frosted-backdrop p-4 animate-in fade-in duration-150"
     onclick={onClose}
     role="presentation"
   >
     <div
-      class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl shadow-black/90 w-full max-w-4xl h-[78vh] flex flex-col overflow-hidden text-slate-100"
+      class="apple-modal-card w-full max-w-4xl h-[78vh] flex flex-col overflow-hidden text-apple-body-on-dark font-sans"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
       role="dialog"
@@ -83,19 +83,19 @@
       tabindex="-1"
     >
       <!-- Header -->
-      <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/60">
+      <div class="px-5 py-3.5 border-b border-apple-hairline-dark flex items-center justify-between shrink-0 bg-apple-surface-tile-2">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-sky-600/20 text-sky-400 flex items-center justify-center font-bold text-sm border border-sky-500/30">
+          <div class="w-8 h-8 rounded-apple-sm bg-apple-surface-tile-3 text-apple-primary-on-dark flex items-center justify-center font-bold text-sm border border-apple-hairline-dark">
             &lt;/&gt;
           </div>
           <div>
-            <h2 id="code-generator-title" class="text-sm font-bold text-slate-100 flex items-center gap-2">
+            <h2 id="code-generator-title" class="apple-body-strong text-apple-body-on-dark flex items-center gap-2">
               Generate Code Snippet
-              <span class="text-xs font-mono font-normal text-slate-400 px-2 py-0.5 rounded bg-slate-800/80">
+              <span class="apple-micro-legal font-mono font-normal text-apple-body-muted px-2 py-0.5 rounded-apple-pill bg-apple-surface-tile-3 border border-apple-hairline-dark">
                 {request.method} {request.name}
               </span>
             </h2>
-            <p class="text-[11px] text-slate-400">
+            <p class="apple-fine-print text-apple-body-muted">
               Ready-to-use client implementations across major languages and HTTP frameworks.
             </p>
           </div>
@@ -104,7 +104,7 @@
         <button
           type="button"
           onclick={onClose}
-          class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 flex items-center justify-center text-sm font-bold transition-colors"
+          class="apple-button-icon-circular w-7 h-7 text-xs font-bold"
           title="Close dialog"
         >
           ✕
@@ -114,8 +114,8 @@
       <!-- Main Body -->
       <div class="flex-1 flex overflow-hidden">
         <!-- Sidebar: Language Selection -->
-        <div class="w-48 border-r border-slate-800 bg-slate-950/40 p-2 overflow-y-auto space-y-1 shrink-0 select-none">
-          <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        <div class="w-48 border-r border-apple-hairline-dark bg-apple-surface-tile-3 p-2 overflow-y-auto space-y-1 shrink-0 select-none">
+          <div class="px-2 py-1 apple-micro-legal font-bold uppercase tracking-wider text-apple-ink-muted-48">
             Languages ({CODE_LANGUAGES.length})
           </div>
           {#each CODE_LANGUAGES as lang (lang.id)}
@@ -125,10 +125,10 @@
                 selectedLangId = lang.id;
                 selectedVariantId = lang.variants[0]?.id || '';
               }}
-              class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-colors
+              class="w-full text-left px-2.5 py-1.5 rounded-apple-sm text-xs font-medium flex items-center gap-2 transition-colors
                 {selectedLangId === lang.id
-                  ? 'bg-sky-600/20 text-sky-300 font-semibold border border-sky-500/30 shadow-sm'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'}"
+                  ? 'bg-apple-surface-tile-1 text-apple-primary-on-dark font-semibold border border-apple-primary/40'
+                  : 'text-apple-body-muted hover:bg-apple-surface-tile-2 hover:text-white'}"
             >
               <span>{lang.icon}</span>
               <span class="truncate">{lang.name}</span>
@@ -137,21 +137,21 @@
         </div>
 
         <!-- Center Code Display -->
-        <div class="flex-1 flex flex-col overflow-hidden bg-slate-950/80">
+        <div class="flex-1 flex flex-col overflow-hidden bg-apple-surface-black">
           <!-- Options bar -->
-          <div class="px-4 py-2 border-b border-slate-800/80 bg-slate-900/40 flex items-center justify-between gap-3 shrink-0">
+          <div class="px-4 py-2 border-b border-apple-hairline-dark bg-apple-surface-tile-2 flex items-center justify-between gap-3 shrink-0">
             <!-- Variant Selector -->
             <div class="flex items-center gap-2">
-              <span class="text-[11px] text-slate-400 font-medium">Library:</span>
-              <div class="flex items-center gap-1 bg-slate-900 border border-slate-700/80 rounded-lg p-0.5">
+              <span class="apple-micro-legal text-apple-body-muted font-medium">Library:</span>
+              <div class="flex items-center gap-1 bg-apple-surface-tile-3 border border-apple-hairline-dark rounded-apple-pill p-0.5">
                 {#each currentLang.variants as variant (variant.id)}
                   <button
                     type="button"
                     onclick={() => selectedVariantId = variant.id}
-                    class="px-2 py-1 rounded text-xs transition-colors
+                    class="px-2.5 py-0.5 rounded-apple-pill text-xs transition-colors
                       {selectedVariantId === variant.id
-                        ? 'bg-sky-600 text-white font-medium shadow-xs'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'}"
+                        ? 'bg-apple-primary text-white font-semibold'
+                        : 'text-apple-body-muted hover:text-white'}"
                   >
                     {variant.name}
                   </button>
@@ -161,22 +161,19 @@
 
             <!-- Options & Copy Button -->
             <div class="flex items-center gap-3">
-              <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer select-none">
+              <label class="flex items-center gap-1.5 text-xs text-apple-body-muted cursor-pointer select-none">
                 <input
                   type="checkbox"
                   bind:checked={interpolateEnv}
-                  class="rounded bg-slate-900 border-slate-700 text-sky-600 focus:ring-0 focus:ring-offset-0"
+                  class="rounded-apple-xs bg-apple-surface-tile-3 border-apple-hairline-dark text-apple-primary focus:ring-0"
                 />
-                <span class="text-[11px] text-slate-400">Resolve Environment Vars</span>
+                <span class="apple-micro-legal text-apple-body-muted">Resolve Environment Vars</span>
               </label>
 
               <button
                 type="button"
                 onclick={copyToClipboard}
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all
-                  {isCopied
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40'
-                    : 'bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-900/30'}"
+                class="apple-button-primary text-xs px-3.5 py-1"
               >
                 {#if isCopied}
                   <span>✓</span>
@@ -190,21 +187,21 @@
           </div>
 
           <!-- Code View Area -->
-          <div class="flex-1 overflow-auto p-4 font-mono text-xs bg-slate-950 text-slate-200 leading-relaxed selection:bg-sky-900 selection:text-white">
+          <div class="flex-1 overflow-auto p-4 font-mono text-xs bg-apple-surface-black text-apple-body-on-dark leading-relaxed selection:bg-apple-primary/40 selection:text-white">
             <pre class="m-0 font-mono"><code>{generatedCode}</code></pre>
           </div>
         </div>
       </div>
 
       <!-- Footer Info -->
-      <div class="px-5 py-2.5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
+      <div class="px-5 py-2.5 border-t border-apple-hairline-dark bg-apple-surface-tile-2 flex items-center justify-between apple-micro-legal text-apple-ink-muted-48 shrink-0">
         <div class="flex items-center gap-2">
           <span>🔒 100% Client-side generation</span>
           <span>•</span>
           <span>Zero external telemetry</span>
         </div>
         <div>
-          Tip: Press <kbd class="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">Esc</kbd> to exit
+          Tip: Press <kbd class="px-1.5 py-0.5 rounded-apple-xs bg-apple-surface-tile-3 border border-apple-hairline-dark text-apple-body-muted font-mono text-[10px]">Esc</kbd> to exit
         </div>
       </div>
     </div>
