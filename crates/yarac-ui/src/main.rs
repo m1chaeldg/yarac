@@ -3,6 +3,10 @@ use yarac_ui::views::app_window::AppWindow;
 
 fn main() {
     println!("Starting Yarac Native GPUI...");
+    // Initialize the background Tokio runtime and enter it on the main thread so
+    // any Tokio-bound components have an active reactor context.
+    let _tokio_guard = yarac_ui::runtime::tokio_runtime().enter();
+
     Application::new().run(|cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
         let window_options = gpui::WindowOptions {

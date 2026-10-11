@@ -66,7 +66,13 @@ impl Render for EditorPane {
                         async move {
                             let req_exec: Result<AppController, _> = ctrl.read_with(&cx, |c: &AppController, _cx| c.clone());
                             if let Ok(mut c_val) = req_exec {
-                                let result = c_val.execute_request(&target_req).await;
+                                let handle = crate::runtime::tokio_runtime().spawn(async move {
+                                    c_val.execute_request(&target_req).await
+                                });
+                                let result = match handle.await {
+                                    Ok(res) => res,
+                                    Err(e) => Err(e.to_string()),
+                                };
                                 let _ = ctrl.update(&mut cx, |c: &mut AppController, cx| {
                                     if let Ok(resp) = result {
                                         c.active_response = resp;

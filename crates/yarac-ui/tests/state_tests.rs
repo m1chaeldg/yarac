@@ -81,3 +81,20 @@ fn test_ui_interactivity_state_updates() {
     assert_eq!(active_req.name, "Req 1");
     assert_eq!(active_req.method, "GET");
 }
+
+#[test]
+fn test_tokio_runtime_bridge_for_ui_requests() {
+    // This runs on a standard non-tokio test thread, simulating the GPUI thread.
+    // Verify that tokio_runtime() successfully executes an async request without reactor panics.
+    let mut controller = yarac_ui::state::app_controller::AppController::new();
+    let req = yarac_ui::state::request_state::RequestState::new("Test Echo", "GET", "https://postman-echo.com/get");
+
+    let handle = yarac_ui::runtime::tokio_runtime().spawn(async move {
+        controller.execute_request(&req).await
+    });
+
+    let result = yarac_ui::runtime::tokio_runtime().block_on(handle)
+        .expect("Tokio task join failed");
+    assert!(result.is_ok(), "Request via tokio_runtime bridge should succeed without reactor panic: {:?}", result);
+}
+

@@ -45,11 +45,16 @@ impl Render for RunnerView {
                     async move {
                         let ctrl_val: Result<AppController, _> = ctrl.read_with(&cx, |c: &AppController, _cx| c.clone());
                         if let Ok(mut c) = ctrl_val {
-                            let _ = c.execute_collection_runner(&reqs, 1).await;
-                            let _ = ctrl.update(&mut cx, |actual_c: &mut AppController, cx| {
-                                actual_c.runner = c.runner;
-                                cx.notify();
+                            let handle = crate::runtime::tokio_runtime().spawn(async move {
+                                let res = c.execute_collection_runner(&reqs, 1).await;
+                                (res, c.runner)
                             });
+                            if let Ok((_stats, updated_runner)) = handle.await {
+                                let _ = ctrl.update(&mut cx, |actual_c: &mut AppController, cx| {
+                                    actual_c.runner = updated_runner;
+                                    cx.notify();
+                                });
+                            }
                         }
                     }
                 }).detach();
