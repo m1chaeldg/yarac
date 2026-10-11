@@ -125,6 +125,7 @@ impl YaracLocalServer {
         // Background task polling the watcher and broadcasting to SSE clients
         if let Some(watcher) = &self.watcher {
             let watcher_clone = Arc::clone(watcher);
+            let ws_dir = self.workspace_dir.clone();
             let tx_clone = self.event_tx.clone();
             tokio::spawn(async move {
                 loop {
@@ -134,8 +135,23 @@ impl YaracLocalServer {
                             ChangeKind::Modified => "modified",
                             ChangeKind::Deleted => "deleted",
                         };
+
+                        // Calculate clean relative path with forward slashes
+                        let rel_path = match event.path.strip_prefix(&ws_dir) {
+                            Ok(rel) => rel.to_string_lossy().replace('\\', "/"),
+                            Err(_) => {
+                                // Fallback: canonicalize if needed
+                                let ws_canon = ws_dir.canonicalize().unwrap_or_else(|_| ws_dir.clone());
+                                let ev_canon = event.path.canonicalize().unwrap_or_else(|_| event.path.clone());
+                                match ev_canon.strip_prefix(&ws_canon) {
+                                    Ok(rel) => rel.to_string_lossy().replace('\\', "/"),
+                                    Err(_) => event.path.to_string_lossy().replace('\\', "/"),
+                                }
+                            }
+                        };
+
                         let _ = tx_clone.send(SseFileEvent {
-                            path: event.path.to_string_lossy().to_string(),
+                            path: rel_path,
                             kind: kind_str.into(),
                             content: event.content,
                         });
@@ -646,7 +662,7 @@ Connection: close\r\n\r\n{}",
 
             let mut res = self.workspace_dir.clone();
             for col in chain {
-                // If path is specified and not empty, use leaf or relative path component
+                // If path is specified, use the last segment of the path or the collection name
                 let seg = if let Some(p) = &col.path {
                     let clean = p.trim_matches(['/', '\\']);
                     if let Some(last) = clean.split(['/', '\\']).last() {

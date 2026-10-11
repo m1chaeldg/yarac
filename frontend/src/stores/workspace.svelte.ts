@@ -1471,7 +1471,6 @@ export class WorkspaceStore {
 
     if (event.kind === 'created' || event.kind === 'modified') {
       const content = event.content || '';
-      if (!content.trim()) return;
 
       if (existingReq) {
         // External edit clash detection (3-way conflict modal required per AGENTS.md)
@@ -1486,13 +1485,15 @@ export class WorkspaceStore {
         } else {
           // Clean auto-sync from disk
           existingReq.dslContent = content;
-          const parsed = parseDslToRequest(content, existingReq);
-          Object.assign(existingReq, parsed);
+          if (content.trim()) {
+            const parsed = parseDslToRequest(content, existingReq);
+            Object.assign(existingReq, parsed);
+          }
           existingReq.isDirty = false;
         }
       } else if (event.kind === 'created') {
         const normalized = event.path.replace(/\\/g, '/');
-        // Extract relative folder path
+        // Extract relative folder path from normalized path
         let folderPath = '';
         const lastSlash = normalized.lastIndexOf('/');
         if (lastSlash !== -1) {
@@ -1500,9 +1501,20 @@ export class WorkspaceStore {
           const wsMarker = parentStr.indexOf('/workspace/');
           if (wsMarker !== -1) {
             folderPath = parentStr.substring(wsMarker + '/workspace/'.length);
+          } else if (parentStr.toLowerCase().startsWith('workspace/')) {
+            folderPath = parentStr.substring('workspace/'.length);
           } else {
-            const parts = parentStr.split('/');
-            folderPath = parts[parts.length - 1] || 'General';
+            // Check if relative path components exist
+            const parts = parentStr.split('/').filter(p => p && p !== '.' && !p.endsWith(':'));
+            if (parts.length > 0) {
+              // If workspace is one of the parts, take everything after it
+              const wsIdx = parts.findIndex(p => p.toLowerCase() === 'workspace');
+              if (wsIdx !== -1 && wsIdx < parts.length - 1) {
+                folderPath = parts.slice(wsIdx + 1).join('/');
+              } else if (wsIdx === -1) {
+                folderPath = parts.join('/');
+              }
+            }
           }
         }
 
@@ -1531,9 +1543,11 @@ export class WorkspaceStore {
         }
         const colId = col?.id || ws.collections[0]?.id || 'col_default';
         const newReq = this.createRequest(colId, reqName, 'GET', folderPath);
-        newReq.dslContent = content;
-        const parsed = parseDslToRequest(content, newReq);
-        Object.assign(newReq, parsed);
+        if (content.trim()) {
+          newReq.dslContent = content;
+          const parsed = parseDslToRequest(content, newReq);
+          Object.assign(newReq, parsed);
+        }
         newReq.isDirty = false;
       }
     }
