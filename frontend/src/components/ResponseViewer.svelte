@@ -4,10 +4,12 @@
   import ResponseTestsTab from './response/ResponseTestsTab.svelte';
   import ResponseTimelineTab from './response/ResponseTimelineTab.svelte';
   import ResponseVisualizer from './response/ResponseVisualizer.svelte';
+  import JsonTreeView from './response/JsonTreeView.svelte';
   import { parseTableData } from '../utils/responseUtils';
   import { calculateTestSummary } from '../utils/responseMetrics';
   import { formatDuration, formatSize, getStatusBadgeColor } from '../utils/statusUtils';
   import { formatXmlString } from '../utils/xmlUtils';
+  import { formatJsonString, compressJsonString } from '../utils/jsonUtils';
 
   export interface AssertionResult {
     name: string;
@@ -70,6 +72,12 @@
 
   let tableData = $derived(parseTableData(parsedJson));
   let testSummary = $derived(calculateTestSummary(response?.assertions));
+
+  function handleBodyChange(newBody: string) {
+    if (response) {
+      response.body = newBody;
+    }
+  }
 
   // Tool Actions
   function copyResponse() {
@@ -305,11 +313,13 @@
         <p class="text-[11px] text-slate-600">Hit "Send" to inspect the live response.</p>
       </div>
     {:else if activeView === 'json'}
-      <div class="p-3 font-mono text-slate-200 text-xs">
-        <pre class="whitespace-pre-wrap break-all leading-relaxed">{response.body}</pre>
-      </div>
+      <JsonTreeView
+        bodyText={response.body}
+        {parsedJson}
+        onBodyChange={handleBodyChange}
+      />
     {:else if activeView === 'table'}
-      <ResponseTableViewer columns={tableData.columns} rows={tableData.rows} />
+      <ResponseTableViewer {parsedJson} columns={tableData.columns} rows={tableData.rows} />
     {:else if activeView === 'visualizer'}
       <ResponseVisualizer parsedJson={parsedJson} mode="charts" />
     {:else if activeView === 'html'}
