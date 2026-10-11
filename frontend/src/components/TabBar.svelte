@@ -28,7 +28,7 @@
   }
 </script>
 
-<div class="h-10 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-2 overflow-x-auto select-none no-scrollbar">
+<div class="h-10 border-b border-apple-hairline-dark/60 bg-apple-surface-black flex items-center justify-between px-2 overflow-x-auto select-none no-scrollbar">
   <div class="flex items-center gap-1 min-w-0">
     {#each workspaceStore.openRequests as req (req.id)}
       {@const isActive = workspaceStore.currentWorkspace.activeTabId === req.id}
@@ -38,13 +38,13 @@
         aria-selected={isActive}
         onclick={() => handleTabClick(req.id)}
         onkeydown={(e) => e.key === 'Enter' && handleTabClick(req.id)}
-        class="group relative flex items-center gap-2 px-3 py-1.5 rounded-t-md text-xs font-medium cursor-pointer transition-all border-t border-x border-b-transparent shrink-0
+        class="group relative flex items-center gap-2 px-3 py-1.5 rounded-t-apple-sm text-xs font-medium cursor-pointer transition-all border-t border-x border-b-transparent shrink-0
           {isActive
-            ? 'bg-slate-900 text-slate-100 border-slate-700 shadow-sm border-b-slate-900 -mb-px z-10'
-            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 border-transparent'}"
+            ? 'bg-apple-surface-tile-2 text-apple-body-on-dark border-apple-hairline-dark/80 -mb-px z-10'
+            : 'text-apple-body-muted hover:text-white hover:bg-apple-surface-tile-1/40 border-transparent'}"
       >
         <!-- Method Pill -->
-        <span class="text-[9px] font-bold px-1 rounded border uppercase font-mono {getMethodColor(req.method)}">
+        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-apple-pill border uppercase font-mono {getMethodColor(req.method)}">
           {req.method}
         </span>
 
@@ -53,7 +53,7 @@
 
         <!-- Dirty Indicator -->
         {#if req.isDirty}
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Unsaved changes"></span>
+          <span class="w-1.5 h-1.5 rounded-apple-full bg-amber-400 shrink-0" title="Unsaved changes"></span>
         {/if}
 
         <!-- Close Button -->
@@ -61,7 +61,7 @@
           type="button"
           aria-label="Close tab"
           onclick={(e) => handleCloseTab(e, req.id)}
-          class="opacity-0 group-hover:opacity-100 hover:bg-slate-800 rounded p-0.5 text-slate-400 hover:text-slate-100 transition-opacity ml-1"
+          class="opacity-0 group-hover:opacity-100 hover:bg-apple-surface-tile-3 rounded-apple-full p-0.5 text-apple-body-muted hover:text-white transition-opacity ml-1"
         >
           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -75,7 +75,7 @@
       type="button"
       onclick={onNewRequest}
       title="Create new request in active collection"
-      class="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-sky-300 transition-colors ml-1"
+      class="p-1.5 rounded-apple-full hover:bg-apple-surface-tile-2 text-apple-body-muted hover:text-apple-primary-on-dark transition-colors ml-1"
     >
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />

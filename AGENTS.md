@@ -29,6 +29,7 @@ All AI assistants and autonomous coding agents contributing to this codebase mus
 ## 2. Frontend Constraints (Svelte 5 & CodeMirror 6)
 * **Reactivity Model:** Use Svelte 5 runes (`$state`, `$derived`, `$effect`).
 * **Large Payloads:** Payloads > 2MB must use chunked streams or virtualized viewports. Never serialize massive raw JSON strings over synchronous IPC.
+* **Design System Invariant:** Always use and strictly adhere to [`frontend/DESIGN.md`](./frontend/DESIGN.md) for all front-end UI changes, components, layouts, typography, spacing, border radii, and color tokens.
 * **File Conflict Resilience:** When external changes clash with unsaved UI changes, prompt the user via the 3-way conflict modal instead of silently overwriting.
 
 ## 3. CLI & CI/CD Runner

@@ -110,28 +110,28 @@
   }
 </script>
 
-<div class="h-full flex flex-col bg-slate-950 border border-slate-800 rounded-lg overflow-hidden text-xs">
+<div class="h-full flex flex-col bg-apple-surface-tile-1 border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden text-xs">
   <!-- Top Response Summary Status Bar & Tab Switcher -->
-  <div class="h-10 bg-slate-900 border-b border-slate-800 px-3 flex items-center justify-between shrink-0 gap-2">
+  <div class="h-10 bg-apple-surface-tile-2 border-b border-apple-hairline-dark/60 px-3 flex items-center justify-between shrink-0 gap-2">
     <div class="flex items-center gap-3 shrink-0">
       <div class="flex items-center gap-1.5">
         {#if response}
-          <span class="px-2 py-0.5 rounded text-[11px] font-bold border font-mono {getStatusBadgeColor(response.status)}">
+          <span class="px-2 py-0.5 rounded-apple-pill text-[11px] font-bold border font-mono {getStatusBadgeColor(response.status)}">
             {response.status} {response.statusText}
           </span>
-          <span class="text-slate-400 font-mono text-[11px] ml-1">
+          <span class="text-apple-body-muted font-mono text-[11px] ml-1">
             ⏱ <span class="text-emerald-400 font-semibold">{formatDuration(response.durationMs)}</span>
           </span>
-          <span class="text-slate-500 font-mono text-[11px]">
+          <span class="text-apple-ink-muted-48 font-mono text-[11px]">
             📦 {formatSize(response.sizeBytes)}
           </span>
         {:else}
-          <span class="text-slate-500 italic">No response received yet</span>
+          <span class="text-apple-ink-muted-48 italic">No response received yet</span>
         {/if}
       </div>
 
       {#if copyFeedback}
-        <span class="px-2 py-0.5 rounded text-[10px] bg-sky-950 text-sky-300 border border-sky-800 font-mono animate-fade-in">
+        <span class="px-2 py-0.5 rounded-apple-pill text-[10px] bg-apple-primary/20 text-apple-primary-on-dark border border-apple-primary/40 font-mono animate-fade-in">
           ✓ {copyFeedback}
         </span>
       {/if}
@@ -142,7 +142,7 @@
       <button
         type="button"
         onclick={() => activeView = 'json'}
-        class="px-2 py-1 rounded text-xs font-medium transition-colors {activeView === 'json' ? 'bg-slate-800 text-sky-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeView === 'json' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         JSON
       </button>
@@ -150,11 +150,11 @@
       <button
         type="button"
         onclick={() => activeView = 'table'}
-        class="px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'table' ? 'bg-slate-800 text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'table' ? 'bg-apple-surface-tile-3 text-emerald-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Table</span>
         {#if tableData.rows.length > 0}
-          <span class="text-[10px] px-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
+          <span class="text-[10px] px-1.5 rounded-apple-pill bg-emerald-950 text-emerald-400 border border-emerald-800">
             {tableData.rows.length}
           </span>
         {/if}
@@ -163,7 +163,7 @@
       <button
         type="button"
         onclick={() => activeView = 'visualizer'}
-        class="px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'visualizer' ? 'bg-slate-800 text-amber-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'visualizer' ? 'bg-apple-surface-tile-3 text-amber-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Charts</span>
       </button>
@@ -171,7 +171,7 @@
       <button
         type="button"
         onclick={() => activeView = 'html'}
-        class="px-2 py-1 rounded text-xs font-medium transition-colors {activeView === 'html' ? 'bg-slate-800 text-sky-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeView === 'html' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         HTML
       </button>
@@ -179,7 +179,7 @@
       <button
         type="button"
         onclick={() => activeView = 'xml'}
-        class="px-2 py-1 rounded text-xs font-medium transition-colors {activeView === 'xml' ? 'bg-slate-800 text-sky-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeView === 'xml' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         XML
       </button>
@@ -187,7 +187,7 @@
       <button
         type="button"
         onclick={() => activeView = 'raw'}
-        class="px-2 py-1 rounded text-xs font-medium transition-colors {activeView === 'raw' ? 'bg-slate-800 text-sky-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors {activeView === 'raw' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         Raw
       </button>
@@ -195,22 +195,22 @@
       <button
         type="button"
         onclick={() => activeView = 'headers'}
-        class="px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'headers' ? 'bg-slate-800 text-sky-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'headers' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Headers</span>
         {#if response?.headers}
-          <span class="text-[10px] text-slate-500 font-mono">({Object.keys(response.headers).length})</span>
+          <span class="text-[10px] text-apple-ink-muted-48 font-mono">({Object.keys(response.headers).length})</span>
         {/if}
       </button>
 
       <button
         type="button"
         onclick={() => activeView = 'tests'}
-        class="px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'tests' ? 'bg-slate-800 text-pink-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'tests' ? 'bg-apple-surface-tile-3 text-pink-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Test Results</span>
         {#if response?.assertions && response.assertions.length > 0}
-          <span class="text-[10px] px-1 rounded-full {testSummary.failed > 0 ? 'bg-rose-950 text-rose-400 border border-rose-800' : 'bg-emerald-950 text-emerald-400 border border-emerald-800'}">
+          <span class="text-[10px] px-1.5 rounded-apple-pill {testSummary.failed > 0 ? 'bg-rose-950 text-rose-400 border border-rose-800' : 'bg-emerald-950 text-emerald-400 border border-emerald-800'}">
             {summaryPassedText(testSummary)}
           </span>
         {/if}
@@ -219,11 +219,11 @@
       <button
         type="button"
         onclick={() => activeView = 'timeline'}
-        class="px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'timeline' ? 'bg-slate-800 text-purple-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 {activeView === 'timeline' ? 'bg-apple-surface-tile-3 text-purple-400 font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
         <span>Timeline</span>
         {#if timeline.length > 0}
-          <span class="text-[10px] px-1 rounded-full bg-purple-950 text-purple-400 border border-purple-800">
+          <span class="text-[10px] px-1.5 rounded-apple-pill bg-purple-950 text-purple-400 border border-purple-800">
             {timeline.length}
           </span>
         {/if}
@@ -235,7 +235,7 @@
           type="button"
           onclick={() => isToolsMenuOpen = !isToolsMenuOpen}
           title="Response Tools"
-          class="px-2 py-1 rounded border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors"
+          class="px-2.5 py-1 rounded-apple-sm border border-apple-hairline-dark/80 bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-white text-xs font-bold transition-colors"
         >
           •••
         </button>
@@ -248,29 +248,29 @@
             onclick={() => isToolsMenuOpen = false}
             onkeydown={(e) => { if (e.key === 'Escape') isToolsMenuOpen = false; }}
           ></div>
-          <div class="absolute right-0 top-full mt-1 w-48 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 py-1 text-slate-200 text-xs font-sans">
+          <div class="absolute right-0 top-full mt-1 w-48 bg-apple-surface-tile-2 border border-apple-hairline-dark rounded-apple-md shadow-xl z-50 py-1 text-apple-body-on-dark text-xs font-sans">
             <button
               type="button"
               onclick={copyResponse}
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-800 flex items-center gap-2"
+              class="w-full text-left px-3 py-1.5 hover:bg-apple-surface-tile-3 flex items-center gap-2"
             >
               <span>📋</span> Copy Response Body
             </button>
             <button
               type="button"
               onclick={() => downloadResponse(true)}
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-800 flex items-center gap-2"
+              class="w-full text-left px-3 py-1.5 hover:bg-apple-surface-tile-3 flex items-center gap-2"
             >
               <span>💾</span> Save as JSON
             </button>
             <button
               type="button"
               onclick={() => downloadResponse(false)}
-              class="w-full text-left px-3 py-1.5 hover:bg-slate-800 flex items-center gap-2"
+              class="w-full text-left px-3 py-1.5 hover:bg-apple-surface-tile-3 flex items-center gap-2"
             >
               <span>⬇</span> Download Raw (.txt)
             </button>
-            <div class="border-t border-slate-800 my-1"></div>
+            <div class="border-t border-apple-hairline-dark/60 my-1"></div>
             {#if onToggleLayout}
               <button
                 type="button"
@@ -278,7 +278,7 @@
                   onToggleLayout();
                   isToolsMenuOpen = false;
                 }}
-                class="w-full text-left px-3 py-1.5 hover:bg-slate-800 flex items-center gap-2"
+                class="w-full text-left px-3 py-1.5 hover:bg-apple-surface-tile-3 flex items-center gap-2"
               >
                 <span>⮂</span> Switch to {layoutOrientation === 'vertical' ? 'Side-by-Side (Horizontal)' : 'Stacked (Vertical)'}
               </button>

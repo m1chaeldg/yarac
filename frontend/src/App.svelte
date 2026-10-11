@@ -132,11 +132,11 @@
   }
 </script>
 
-<div class="flex h-screen w-screen overflow-hidden bg-slate-950 font-sans text-slate-100 select-none">
+<div class="flex h-screen w-screen overflow-hidden bg-apple-surface-black font-sans text-apple-body-on-dark select-none">
   <!-- Left Sidebar (Workspace Navigation & Collections) with Resizer -->
   <aside
     style="width: {sidebarWidth}px;"
-    class="border-r border-slate-800 bg-slate-900/60 flex flex-col shrink-0 h-full overflow-hidden"
+    class="border-r border-apple-hairline-dark/50 bg-apple-surface-tile-1 flex flex-col shrink-0 h-full overflow-hidden"
   >
     <WorkspaceNav
       {activeView}
@@ -155,7 +155,7 @@
   />
 
   <!-- Main View Area -->
-  <main class="flex-1 flex flex-col overflow-hidden h-full">
+  <main class="flex-1 flex flex-col overflow-hidden h-full bg-apple-surface-black">
     {#if activeView === 'runner'}
       <RunnerView />
     {:else}
@@ -166,13 +166,13 @@
 
         {#if activeReq}
           <!-- Execution Address Bar -->
-          <header class="h-14 border-b border-slate-800 bg-slate-900/40 px-4 flex items-center justify-between gap-3 shrink-0">
+          <header class="h-14 border-b border-apple-hairline-dark/60 bg-apple-surface-tile-2 px-4 flex items-center justify-between gap-3 shrink-0">
             <div class="flex-1 flex items-center gap-2">
               <!-- HTTP Method -->
               <select
                 bind:value={activeReq.method}
                 onchange={() => workspaceStore.updateActiveRequest({ method: activeReq?.method })}
-                class="bg-slate-800 border border-slate-700 text-xs font-bold rounded-md px-2.5 py-1.5 focus:outline-none focus:border-sky-500 font-mono
+                class="bg-apple-surface-tile-3 border border-apple-hairline-dark text-xs font-bold rounded-apple-sm px-2.5 py-1.5 focus:outline-none focus:border-apple-primary font-mono
                   {activeReq.method === 'GET' ? 'text-sky-400' : activeReq.method === 'POST' ? 'text-emerald-400' : activeReq.method === 'PUT' ? 'text-amber-400' : activeReq.method === 'DELETE' ? 'text-rose-400' : 'text-purple-400'}"
               >
                 <option>GET</option>
@@ -191,16 +191,16 @@
                   bind:value={activeReq.url}
                   placeholder={'Enter request URL or {{base_url}}/path...'}
                   oninput={() => workspaceStore.updateActiveRequest({ url: activeReq?.url })}
-                  class="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-sky-500"
+                  class="w-full bg-apple-surface-tile-1 border border-apple-hairline-dark/80 rounded-apple-pill px-4 py-1.5 text-xs font-mono text-apple-body-on-dark placeholder:text-apple-ink-muted-48 focus:outline-none focus:border-apple-primary"
                 />
               </div>
 
-              <!-- Send Button -->
+              <!-- Send Button (Apple Pill Button) -->
               <button
                 type="button"
                 onclick={triggerSend}
                 disabled={isSending}
-                class="bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs px-4 py-1.5 rounded-md shadow-sm transition-all flex items-center gap-1.5 shrink-0"
+                class="apple-button-primary font-semibold text-xs px-5 py-1.5 rounded-apple-pill transition-all flex items-center gap-1.5 shrink-0"
               >
                 {#if isSending}
                   <span class="animate-spin text-xs">⟳</span> Sending...
@@ -213,19 +213,19 @@
               <button
                 type="button"
                 onclick={() => workspaceStore.saveActiveRequest()}
-                class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-md border border-slate-700 transition-colors"
+                class="apple-button-dark-utility bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-slate-200 text-xs font-semibold px-3.5 py-1.5 rounded-apple-sm border border-apple-hairline-dark/80 transition-colors"
               >
                 Save
               </button>
             </div>
 
             <!-- Environment Selector & Profile Manager Shortcut -->
-            <div class="flex items-center gap-2 border-l border-slate-800 pl-3">
-              <span class="text-[11px] text-slate-400">Env:</span>
+            <div class="flex items-center gap-2 border-l border-apple-hairline-dark/60 pl-3">
+              <span class="text-[11px] text-apple-body-muted">Env:</span>
               <select
                 value={workspaceStore.currentWorkspace.activeEnvironmentId}
                 onchange={(e) => workspaceStore.setActiveEnvironment((e.target as HTMLSelectElement).value)}
-                class="bg-slate-800/80 border border-slate-700 text-xs text-slate-300 rounded px-2 py-1 focus:outline-none font-medium"
+                class="bg-apple-surface-tile-3 border border-apple-hairline-dark text-xs text-slate-200 rounded-apple-sm px-2.5 py-1 focus:outline-none font-medium"
               >
                 {#each workspaceStore.currentWorkspace.environments as env (env.id)}
                   <option value={env.id}>{env.name}</option>
@@ -234,9 +234,9 @@
 
               <button
                 type="button"
-                title="Manage Environment Profiles (Bruno Style)"
+                title="Manage Environment Profiles"
                 onclick={() => isEnvModalOpen = true}
-                class="p-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 text-xs font-bold"
+                class="p-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-primary-on-dark text-xs font-bold border border-apple-hairline-dark/80"
               >
                 ⚙
               </button>
@@ -244,15 +244,15 @@
           </header>
 
           <!-- Dual Mode Switcher Bar (Visual UI vs Code .yarac) -->
-          <div class="h-9 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 shrink-0">
+          <div class="h-9 border-b border-apple-hairline-dark/60 bg-apple-surface-tile-3 flex items-center justify-between px-4 shrink-0">
             <div class="flex items-center gap-2">
               <button
                 type="button"
                 onclick={() => editorMode = 'visual'}
-                class="px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1.5
+                class="px-3 py-1 text-xs font-semibold rounded-apple-pill transition-colors flex items-center gap-1.5
                   {editorMode === 'visual'
-                    ? 'bg-sky-600/20 text-sky-300 border border-sky-500/30'
-                    : 'text-slate-400 hover:text-slate-200'}"
+                    ? 'bg-apple-primary text-white shadow-none'
+                    : 'text-apple-body-muted hover:text-white'}"
               >
                 <span>🛠 Visual Editor</span>
               </button>
@@ -260,33 +260,33 @@
               <button
                 type="button"
                 onclick={() => editorMode = 'dsl'}
-                class="px-3 py-1 text-xs font-semibold rounded transition-colors flex items-center gap-1.5
+                class="px-3 py-1 text-xs font-semibold rounded-apple-pill transition-colors flex items-center gap-1.5
                   {editorMode === 'dsl'
-                    ? 'bg-sky-600/20 text-sky-300 border border-sky-500/30'
-                    : 'text-slate-400 hover:text-slate-200'}"
+                    ? 'bg-apple-primary text-white shadow-none'
+                    : 'text-apple-body-muted hover:text-white'}"
               >
                 <span>📝 Code (.yarac)</span>
               </button>
             </div>
 
-            <span class="text-[11px] text-slate-500 font-mono">
+            <span class="text-[11px] text-apple-ink-muted-48 font-mono">
               Lossless Bidirectional Sync Active
             </span>
           </div>
 
           <!-- Resizable Split Container (Vertical Stacked vs Horizontal Side-by-Side) -->
-          <div id="studio-split-container" class="flex-1 {studioLayout === 'vertical' ? 'flex flex-col' : 'flex flex-row'} overflow-hidden bg-slate-950">
+          <div id="studio-split-container" class="flex-1 {studioLayout === 'vertical' ? 'flex flex-col' : 'flex flex-row'} overflow-hidden bg-apple-surface-black">
             <!-- Request Pane -->
             <div
               style="{studioLayout === 'vertical' ? `height: ${requestPanePercent}%;` : `width: ${requestPanePercent}%;`}"
               class="overflow-hidden flex flex-col p-2 {studioLayout === 'horizontal' ? 'pr-0' : ''}"
             >
               {#if editorMode === 'visual'}
-                <div class="h-full border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
+                <div class="h-full border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-tile-1">
                   <VisualEditor />
                 </div>
               {:else}
-                <div class="h-full border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
+                <div class="h-full border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-tile-1">
                   <Editor
                     content={activeReq.dslContent}
                     onchange={(newDsl) => workspaceStore.updateActiveRequestFromDsl(newDsl)}
@@ -321,14 +321,14 @@
             </div>
           </div>
         {:else}
-          <div class="flex-1 flex flex-col items-center justify-center text-slate-500 space-y-3">
+          <div class="flex-1 flex flex-col items-center justify-center text-apple-ink-muted-48 space-y-3 bg-apple-surface-black">
             <span class="text-4xl">📁</span>
-            <p class="text-sm font-semibold text-slate-300">No Request Open</p>
-            <p class="text-xs text-slate-500">Select a request from the sidebar or click below to start.</p>
+            <p class="text-sm font-semibold text-white tracking-tight">No Request Open</p>
+            <p class="text-xs text-apple-body-muted">Select a request from the sidebar or click below to start.</p>
             <button
               type="button"
               onclick={handleCreateNewRequest}
-              class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-md shadow-sm transition-colors"
+              class="apple-button-primary px-5 py-2 text-xs font-semibold rounded-apple-pill transition-colors"
             >
               + Create Request
             </button>
