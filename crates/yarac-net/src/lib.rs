@@ -132,6 +132,16 @@ impl YaracHttpClient {
                     .header(reqwest::header::CONTENT_TYPE, "application/json")
                     .body(json_str.clone());
             }
+            BodyType::Xml(xml_str) => {
+                req_builder = req_builder
+                    .header(reqwest::header::CONTENT_TYPE, "application/xml")
+                    .body(xml_str.clone());
+            }
+            BodyType::Text(text_str) => {
+                req_builder = req_builder
+                    .header(reqwest::header::CONTENT_TYPE, "text/plain")
+                    .body(text_str.clone());
+            }
             BodyType::Raw { content, content_type } => {
                 if let Some(ct) = content_type {
                     req_builder = req_builder.header(reqwest::header::CONTENT_TYPE, ct.as_str());
@@ -154,6 +164,14 @@ impl YaracHttpClient {
                     }
                 }
                 req_builder = req_builder.multipart(form);
+            }
+            BodyType::Binary { file_path, content_type } => {
+                let full_path = resolve_workspace_path(workspace_root, file_path)?;
+                let bytes = tokio::fs::read(&full_path).await?;
+                let ct = content_type.as_deref().unwrap_or("application/octet-stream");
+                req_builder = req_builder
+                    .header(reqwest::header::CONTENT_TYPE, ct)
+                    .body(bytes);
             }
         }
 

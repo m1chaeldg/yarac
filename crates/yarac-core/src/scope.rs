@@ -188,7 +188,7 @@ impl VariableScopeStack {
 
         // Interpolate body
         match &mut req.body {
-            BodyType::Json(s) => {
+            BodyType::Json(s) | BodyType::Xml(s) | BodyType::Text(s) => {
                 *s = effective_stack.interpolate(s);
             }
             BodyType::Raw { content, .. } => {
@@ -205,6 +205,9 @@ impl VariableScopeStack {
                         *val = effective_stack.interpolate(val);
                     }
                 }
+            }
+            BodyType::Binary { file_path, .. } => {
+                *file_path = effective_stack.interpolate(file_path);
             }
             BodyType::None => {}
         }

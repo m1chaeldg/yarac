@@ -96,4 +96,65 @@ fn test_inactive_tilde_keys_roundtrip_and_omitted_from_request() {
     assert!(!req.variables.contains_key("secret_flag~"));
     assert!(!req.variables.contains_key("secret_flag"));
 }
+#[test]
+fn test_roundtrip_all_body_types() {
+    use yarac_core::models::BodyType;
 
+    // 1. XML
+    let xml_input = "version = \"1.0\"\nname = \"XML Test\"\nmethod = \"POST\"\nurl = \"http://api.test/xml\"\n\n[body.xml]\n```xml\n<request>\n  <user id=\"1\">Alice</user>\n</request>\n```\n";
+    let cst_xml = parse(xml_input).expect("Parse XML");
+    assert_eq!(serialize(&cst_xml), xml_input, "XML round-trip");
+    let req_xml = cst_xml.to_request().expect("To request XML");
+    assert!(matches!(req_xml.body, BodyType::Xml(s) if s.contains("<user id=\"1\">Alice</user>")));
+
+    // 2. Text
+    let text_input = "version = \"1.0\"\nname = \"Text Test\"\nmethod = \"POST\"\nurl = \"http://api.test/text\"\n\n[body.text]\n```text\nHello Plain Text\nLine 2\n```\n";
+    let cst_text = parse(text_input).expect("Parse Text");
+    assert_eq!(serialize(&cst_text), text_input, "Text round-trip");
+    let req_text = cst_text.to_request().expect("To request Text");
+    assert!(matches!(req_text.body, BodyType::Text(s) if s.contains("Hello Plain Text")));
+
+    // 3. Form Urlencoded with active and inactive (~) keys
+    let form_input = "version = \"1.0\"\nname = \"Form Test\"\nmethod = \"POST\"\nurl = \"http://api.test/form\"\n\n[body.form]\nusername = \"alice\"\ngrant_type = \"password\"\nremember~ = \"false\"\n";
+    let cst_form = parse(form_input).expect("Parse Form");
+    assert_eq!(serialize(&cst_form), form_input, "Form round-trip");
+    let req_form = cst_form.to_request().expect("To request Form");
+    if let BodyType::Form(map) = req_form.body {
+        assert_eq!(map.get("username").unwrap(), "alice");
+        assert_eq!(map.get("grant_type").unwrap(), "password");
+        assert!(!map.contains_key("remember~"));
+        assert!(!map.contains_key("remember"));
+    } else {
+        panic!("Expected BodyType::Form");
+    }
+
+    // 4. Multipart with text and relative file references
+    let multipart_input = "version = \"1.0\"\nname = \"Multipart Test\"\nmethod = \"POST\"\nurl = \"http://api.test/upload\"\n\n[body.multipart]\ndescription = \"Profile Photo\"\navatar = \"@./fixtures/avatar.png\"\ndoc~ = \"@./fixtures/doc.pdf\"\n";
+    let cst_mp = parse(multipart_input).expect("Parse Multipart");
+    assert_eq!(serialize(&cst_mp), multipart_input, "Multipart round-trip");
+    let req_mp = cst_mp.to_request().expect("To request Multipart");
+    if let BodyType::Multipart(parts) = req_mp.body {
+        assert_eq!(parts.len(), 2, "Inactive doc~ part omitted from execution request");
+        let desc = parts.iter().find(|p| p.name == "description").unwrap();
+        assert_eq!(desc.value.as_deref(), Some("Profile Photo"));
+        assert_eq!(desc.file_path, None);
+
+        let avatar = parts.iter().find(|p| p.name == "avatar").unwrap();
+        assert_eq!(avatar.value, None);
+        assert_eq!(avatar.file_path.as_deref(), Some("./fixtures/avatar.png"));
+    } else {
+        panic!("Expected BodyType::Multipart");
+    }
+
+    // 5. Binary file
+    let binary_input = "version = \"1.0\"\nname = \"Binary Test\"\nmethod = \"POST\"\nurl = \"http://api.test/bin\"\n\n[body.binary]\nfile = \"./fixtures/firmware.bin\"\ncontent_type = \"application/octet-stream\"\n";
+    let cst_bin = parse(binary_input).expect("Parse Binary");
+    assert_eq!(serialize(&cst_bin), binary_input, "Binary round-trip");
+    let req_bin = cst_bin.to_request().expect("To request Binary");
+    if let BodyType::Binary { file_path, content_type } = req_bin.body {
+        assert_eq!(file_path, "./fixtures/firmware.bin");
+        assert_eq!(content_type.as_deref(), Some("application/octet-stream"));
+    } else {
+        panic!("Expected BodyType::Binary");
+    }
+}

@@ -22,12 +22,19 @@ export interface AuthConfig {
   apiKeyLocation?: 'header' | 'query';
 }
 
-export type BodyType = 'none' | 'json' | 'form-urlencoded' | 'multipart' | 'raw';
+export type BodyType = 'none' | 'json' | 'xml' | 'text' | 'form-urlencoded' | 'multipart' | 'binary' | 'raw';
+
+export interface FormDataItem extends KeyValuePair {
+  type?: 'text' | 'file';
+  contentType?: string;
+}
 
 export interface BodyConfig {
   type: BodyType;
   rawContent: string;
-  formData: KeyValuePair[];
+  formData: FormDataItem[];
+  binaryFilePath?: string;
+  binaryContentType?: string;
 }
 
 export interface RequestSettings {
@@ -179,17 +186,59 @@ export function serializeToDsl(req: YaracRequest): string {
   lines.push(`jitter_max_ms = ${req.flow.jitter_max_ms}`);
   lines.push(``);
 
-  if (req.body.type === 'json' && req.body.rawContent.trim()) {
+  if (req.body.type === 'json' && req.body.rawContent?.trim()) {
     lines.push(`[body.json]`);
     lines.push('```json');
     lines.push(req.body.rawContent.trim());
     lines.push('```');
     lines.push(``);
-  } else if (req.body.type === 'raw' && req.body.rawContent.trim()) {
+  } else if (req.body.type === 'xml' && req.body.rawContent?.trim()) {
+    lines.push(`[body.xml]`);
+    lines.push('```xml');
+    lines.push(req.body.rawContent.trim());
+    lines.push('```');
+    lines.push(``);
+  } else if ((req.body.type === 'text' || req.body.type === 'raw') && req.body.rawContent?.trim()) {
     lines.push(`[body.text]`);
     lines.push('```text');
     lines.push(req.body.rawContent.trim());
     lines.push('```');
+    lines.push(``);
+  } else if (req.body.type === 'form-urlencoded') {
+    const fieldsToSerialize = (req.body.formData || []).filter(f => f.key.trim());
+    if (fieldsToSerialize.length > 0) {
+      lines.push(`[body.form]`);
+      for (const f of fieldsToSerialize) {
+        const rawK = f.key.trim();
+        const baseK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
+        const k = f.enabled ? baseK : `${baseK}~`;
+        lines.push(`${k} = "${(f.value || '').replace(/"/g, '\\"')}"`);
+      }
+      lines.push(``);
+    }
+  } else if (req.body.type === 'multipart') {
+    const fieldsToSerialize = (req.body.formData || []).filter(f => f.key.trim());
+    if (fieldsToSerialize.length > 0) {
+      lines.push(`[body.multipart]`);
+      for (const f of fieldsToSerialize) {
+        const rawK = f.key.trim();
+        const baseK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
+        const k = f.enabled ? baseK : `${baseK}~`;
+        if (f.type === 'file') {
+          const pathVal = (f.value || '').startsWith('@') ? f.value : `@${f.value || ''}`;
+          lines.push(`${k} = "${pathVal.replace(/"/g, '\\"')}"`);
+        } else {
+          lines.push(`${k} = "${(f.value || '').replace(/"/g, '\\"')}"`);
+        }
+      }
+      lines.push(``);
+    }
+  } else if (req.body.type === 'binary') {
+    lines.push(`[body.binary]`);
+    lines.push(`file = "${(req.body.binaryFilePath || '').replace(/"/g, '\\"')}"`);
+    if (req.body.binaryContentType) {
+      lines.push(`content_type = "${req.body.binaryContentType.replace(/"/g, '\\"')}"`);
+    }
     lines.push(``);
   }
 
@@ -322,6 +371,63 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
   if (bodyJsonMatch) {
     updated.body.type = 'json';
     updated.body.rawContent = bodyJsonMatch[1].trim();
+  }
+
+  const bodyXmlMatch = dsl.match(/\[body\.xml\]\s*```xml([\s\S]*?)```/);
+  if (bodyXmlMatch) {
+    updated.body.type = 'xml';
+    updated.body.rawContent = bodyXmlMatch[1].trim();
+  }
+
+  const bodyTextMatch = dsl.match(/\[body\.(?:text|raw)\]\s*```(?:text|raw)?([\s\S]*?)```/);
+  if (bodyTextMatch) {
+    updated.body.type = 'text';
+    updated.body.rawContent = bodyTextMatch[1].trim();
+  }
+
+  const bodyFormMatch = dsl.match(/\[body\.(?:form|form-urlencoded)\]([\s\S]*?)(?=\n\[|$)/);
+  if (bodyFormMatch) {
+    updated.body.type = 'form-urlencoded';
+    const formLines = bodyFormMatch[1].split('\n').filter(l => l.includes('=') && !l.trim().startsWith('#'));
+    const parsedForm: FormDataItem[] = formLines.map(line => {
+      const parts = line.split('=');
+      const rawK = parts[0].trim();
+      const isInactive = rawK.endsWith('~') || rawK.startsWith('~');
+      const cleanK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
+      const v = parts.slice(1).join('=').trim().replace(/^"(.*)"$/, '$1');
+      return { id: generateId(), key: cleanK, value: v, enabled: !isInactive, type: 'text' };
+    });
+    if (parsedForm.length > 0) {
+      updated.body.formData = parsedForm;
+    }
+  }
+
+  const bodyMultipartMatch = dsl.match(/\[body\.multipart\]([\s\S]*?)(?=\n\[|$)/);
+  if (bodyMultipartMatch) {
+    updated.body.type = 'multipart';
+    const partLines = bodyMultipartMatch[1].split('\n').filter(l => l.includes('=') && !l.trim().startsWith('#'));
+    const parsedParts: FormDataItem[] = partLines.map(line => {
+      const parts = line.split('=');
+      const rawK = parts[0].trim();
+      const isInactive = rawK.endsWith('~') || rawK.startsWith('~');
+      const cleanK = rawK.endsWith('~') ? rawK.slice(0, -1) : (rawK.startsWith('~') ? rawK.slice(1) : rawK);
+      const rawV = parts.slice(1).join('=').trim().replace(/^"(.*)"$/, '$1');
+      const isFile = rawV.startsWith('@');
+      const cleanV = isFile ? rawV.slice(1) : rawV;
+      return { id: generateId(), key: cleanK, value: cleanV, enabled: !isInactive, type: isFile ? 'file' : 'text' };
+    });
+    if (parsedParts.length > 0) {
+      updated.body.formData = parsedParts;
+    }
+  }
+
+  const bodyBinaryMatch = dsl.match(/\[body\.binary\]([\s\S]*?)(?=\n\[|$)/);
+  if (bodyBinaryMatch) {
+    updated.body.type = 'binary';
+    const fileMatch = bodyBinaryMatch[1].match(/(?:file|path)\s*=\s*"([^"]+)"/);
+    if (fileMatch) updated.body.binaryFilePath = fileMatch[1];
+    const ctMatch = bodyBinaryMatch[1].match(/content_type\s*=\s*"([^"]+)"/);
+    if (ctMatch) updated.body.binaryContentType = ctMatch[1];
   }
 
   const preScriptMatch = dsl.match(/\[scripts\.pre-request\]\s*```(?:javascript|js)?([\s\S]*?)```/);

@@ -244,6 +244,20 @@ impl CstDocument {
                             }
                         }
                     }
+                    "body.xml" => {
+                        for sub in &table.items {
+                            if let CstTableItem::FencedBlock(fb) = sub {
+                                req.body = BodyType::Xml(fb.content.clone());
+                            }
+                        }
+                    }
+                    "body.text" => {
+                        for sub in &table.items {
+                            if let CstTableItem::FencedBlock(fb) = sub {
+                                req.body = BodyType::Text(fb.content.clone());
+                            }
+                        }
+                    }
                     "body.raw" => {
                         for sub in &table.items {
                             if let CstTableItem::FencedBlock(fb) = sub {
@@ -253,6 +267,61 @@ impl CstDocument {
                                 };
                             }
                         }
+                    }
+                    "body.form" | "body.form-urlencoded" => {
+                        let mut form = indexmap::IndexMap::new();
+                        for sub in &table.items {
+                            if let CstTableItem::KeyValue(kv) = sub {
+                                if !kv.key.ends_with('~') && !kv.key.starts_with('~') {
+                                    form.insert(kv.key.clone(), kv.value.as_str().to_string());
+                                }
+                            }
+                        }
+                        req.body = BodyType::Form(form);
+                    }
+                    "body.multipart" => {
+                        let mut parts = Vec::new();
+                        for sub in &table.items {
+                            if let CstTableItem::KeyValue(kv) = sub {
+                                if !kv.key.ends_with('~') && !kv.key.starts_with('~') {
+                                    let val_str = kv.value.as_str();
+                                    if val_str.starts_with('@') {
+                                        let file_path = val_str.trim_start_matches('@').trim().to_string();
+                                        parts.push(MultipartPart {
+                                            name: kv.key.clone(),
+                                            value: None,
+                                            file_path: Some(file_path),
+                                            content_type: None,
+                                        });
+                                    } else {
+                                        parts.push(MultipartPart {
+                                            name: kv.key.clone(),
+                                            value: Some(val_str.to_string()),
+                                            file_path: None,
+                                            content_type: None,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        req.body = BodyType::Multipart(parts);
+                    }
+                    "body.binary" => {
+                        let mut file_path = String::new();
+                        let mut content_type = None;
+                        for sub in &table.items {
+                            if let CstTableItem::KeyValue(kv) = sub {
+                                match kv.key.as_str() {
+                                    "file" | "path" => file_path = kv.value.as_str().to_string(),
+                                    "content_type" => content_type = Some(kv.value.as_str().to_string()),
+                                    _ => {}
+                                }
+                            }
+                        }
+                        req.body = BodyType::Binary {
+                            file_path,
+                            content_type,
+                        };
                     }
                     "scripts.pre-request" => {
                         for sub in &table.items {

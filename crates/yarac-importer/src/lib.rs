@@ -107,6 +107,16 @@ pub fn serialize_to_yarac(req: &YaracRequest) -> String {
             out.push_str(s);
             out.push_str("\n```\n\n");
         }
+        BodyType::Xml(s) => {
+            out.push_str("[body.xml]\n```xml\n");
+            out.push_str(s);
+            out.push_str("\n```\n\n");
+        }
+        BodyType::Text(s) => {
+            out.push_str("[body.text]\n```text\n");
+            out.push_str(s);
+            out.push_str("\n```\n\n");
+        }
         BodyType::Raw { content, content_type } => {
             let tag = content_type.as_deref().unwrap_or("text");
             out.push_str(&format!("[body.raw]\n```{}\n", tag));
@@ -120,7 +130,25 @@ pub fn serialize_to_yarac(req: &YaracRequest) -> String {
             }
             out.push('\n');
         }
-        BodyType::Multipart(_) => {}
+        BodyType::Multipart(parts) => {
+            out.push_str("[body.multipart]\n");
+            for part in parts {
+                if let Some(file_path) = &part.file_path {
+                    out.push_str(&format!("{} = \"@{}\"\n", part.name, file_path));
+                } else if let Some(val) = &part.value {
+                    out.push_str(&format!("{} = \"{}\"\n", part.name, val));
+                }
+            }
+            out.push('\n');
+        }
+        BodyType::Binary { file_path, content_type } => {
+            out.push_str("[body.binary]\n");
+            out.push_str(&format!("file = \"{}\"\n", file_path));
+            if let Some(ct) = content_type {
+                out.push_str(&format!("content_type = \"{}\"\n", ct));
+            }
+            out.push('\n');
+        }
     }
 
     if let Some(pre) = &req.scripts.pre_request {

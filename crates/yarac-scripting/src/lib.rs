@@ -351,7 +351,7 @@ impl ScriptRunner {
         let script = script.to_string();
         let timeout = self.timeout;
         let body_str = match &request.body {
-            BodyType::Json(s) => s.clone(),
+            BodyType::Json(s) | BodyType::Xml(s) | BodyType::Text(s) => s.clone(),
             BodyType::Raw { content, .. } => content.clone(),
             _ => String::new(),
         };

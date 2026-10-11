@@ -89,31 +89,218 @@
     workspaceStore.updateActiveRequest({ variables: req.variables });
   }
 
-  function addFormData() {
+  let bodyActionFeedback = $state('');
+
+  function setBodyType(bType: BodyType) {
     if (!req) return;
+    req.body.type = bType;
+    if (!req.body.formData) req.body.formData = [];
+    if (!req.body.rawContent) req.body.rawContent = '';
+    if (bType === 'binary' && !req.body.binaryContentType) {
+      req.body.binaryContentType = 'application/octet-stream';
+    }
+
+    // Auto-align Content-Type header if helpful
+    const typeHeaderMap: Partial<Record<BodyType, string>> = {
+      json: 'application/json',
+      xml: 'application/xml',
+      text: 'text/plain',
+      'form-urlencoded': 'application/x-www-form-urlencoded',
+      multipart: 'multipart/form-data',
+      binary: req.body.binaryContentType || 'application/octet-stream'
+    };
+    const targetHeader = typeHeaderMap[bType];
+    if (targetHeader) {
+      const ctHeader = req.headers.find(h => h.key.toLowerCase() === 'content-type');
+      if (ctHeader && ctHeader.enabled) {
+        ctHeader.value = targetHeader;
+      }
+    }
+
+    workspaceStore.updateActiveRequest({ body: req.body, headers: req.headers });
+  }
+
+  function addFormData(type: 'text' | 'file' = 'text') {
+    if (!req) return;
+    if (!req.body.formData) req.body.formData = [];
     req.body.formData.push({
       id: Math.random().toString(36).substring(2, 9),
       key: '',
       value: '',
-      enabled: true
+      enabled: true,
+      type
     });
     workspaceStore.updateActiveRequest({ body: req.body });
   }
 
   function removeFormData(index: number) {
-    if (!req) return;
+    if (!req || !req.body.formData) return;
     req.body.formData.splice(index, 1);
     workspaceStore.updateActiveRequest({ body: req.body });
+  }
+
+  function cleanFormData() {
+    if (!req || !req.body.formData) return;
+    req.body.formData = req.body.formData
+      .filter(f => f.key.trim() || f.value.trim())
+      .map(f => ({ ...f, key: f.key.trim(), value: f.value.trim() }));
+    workspaceStore.updateActiveRequest({ body: req.body });
+    bodyActionFeedback = 'Cleaned empty form fields';
+    setTimeout(() => (bodyActionFeedback = ''), 2000);
   }
 
   function formatJsonBody() {
     if (!req || req.body.type !== 'json') return;
     try {
-      const parsed = JSON.parse(req.body.rawContent);
+      const parsed = JSON.parse(req.body.rawContent || '{}');
       req.body.rawContent = JSON.stringify(parsed, null, 2);
       workspaceStore.updateActiveRequest({ body: req.body });
-    } catch (e) {
-      // Keep as is if invalid JSON
+      bodyActionFeedback = 'Formatted JSON';
+      setTimeout(() => (bodyActionFeedback = ''), 2000);
+    } catch (e: any) {
+      bodyActionFeedback = 'Invalid JSON: ' + (e.message || String(e));
+      setTimeout(() => (bodyActionFeedback = ''), 3000);
+    }
+  }
+
+  function compressJsonBody() {
+    if (!req || req.body.type !== 'json') return;
+    try {
+      const parsed = JSON.parse(req.body.rawContent || '{}');
+      req.body.rawContent = JSON.stringify(parsed);
+      workspaceStore.updateActiveRequest({ body: req.body });
+      bodyActionFeedback = 'Compressed JSON';
+      setTimeout(() => (bodyActionFeedback = ''), 2000);
+    } catch (e: any) {
+      bodyActionFeedback = 'Invalid JSON: ' + (e.message || String(e));
+      setTimeout(() => (bodyActionFeedback = ''), 3000);
+    }
+  }
+
+  function compressXmlString(xml: string): string {
+    if (!xml) return '';
+    // 1. Preserve CDATA blocks
+    const cdataBlocks: string[] = [];
+    let processed = xml.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, (match) => {
+      cdataBlocks.push(match);
+      return `___CDATA_${cdataBlocks.length - 1}___`;
+    });
+
+    // 2. Remove comments completely in compressed mode
+    processed = processed.replace(/<!--[\s\S]*?-->/g, '');
+
+    // 3. Remove leading/trailing newlines and spaces across whole document
+    processed = processed.trim();
+
+    // 4. Remove all whitespace between tags: >  \n  < -> ><
+    processed = processed.replace(/>\s+</g, '><');
+
+    // 5. Trim whitespace around text contents between tags: >  text  < -> >text<
+    processed = processed.replace(/>\s*([^<]+?)\s*</g, (_, text) => {
+      return `>${text.trim()}<`;
+    });
+
+    // 6. Normalize and collapse spaces/newlines inside opening tags & attributes
+    processed = processed.replace(/<([^>!][^>]*?)>/g, (_, tagContent) => {
+      return '<' + tagContent.replace(/\s+/g, ' ').trim() + '>';
+    });
+
+    // 7. Collapse any whitespace that was generated
+    processed = processed.replace(/>\s+</g, '><');
+
+    // 8. Restore CDATA blocks
+    processed = processed.replace(/___CDATA_(\d+)___/g, (_, idx) => {
+      return cdataBlocks[parseInt(idx, 10)] || '';
+    });
+
+    return processed.trim();
+  }
+
+  function compressXmlBody() {
+    if (!req || req.body.type !== 'xml') return;
+    try {
+      req.body.rawContent = compressXmlString(req.body.rawContent || '');
+      workspaceStore.updateActiveRequest({ body: req.body });
+      bodyActionFeedback = 'Compressed XML';
+      setTimeout(() => (bodyActionFeedback = ''), 2000);
+    } catch (e: any) {
+      bodyActionFeedback = 'Error compressing XML: ' + (e.message || String(e));
+      setTimeout(() => (bodyActionFeedback = ''), 3000);
+    }
+  }
+
+  function formatXmlBody() {
+    if (!req || req.body.type !== 'xml') return;
+    try {
+      const clean = compressXmlString(req.body.rawContent || '');
+      let formatted = '';
+      let pad = 0;
+      const tokens = clean.match(/(<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[^?]+\?>|<!DOCTYPE[^>]+>|<\/[^>]+>|<[^\/>]+(\/>|>)|[^<]+)/g) || [clean];
+
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i].trim();
+        if (!token) continue;
+
+        if (token.startsWith('</')) {
+          pad = Math.max(0, pad - 1);
+          formatted += '  '.repeat(pad) + token + '\n';
+        } else if (token.startsWith('<') && !token.startsWith('<?') && !token.startsWith('<!') && !token.endsWith('/>') && !token.startsWith('<!--')) {
+          const nextToken = tokens[i + 1]?.trim();
+          const nextNextToken = tokens[i + 2]?.trim();
+          const tagNameMatch = token.match(/<([^\s>]+)/);
+          const tagName = tagNameMatch ? tagNameMatch[1] : '';
+
+          if (nextToken && !nextToken.startsWith('<') && nextNextToken === `</${tagName}>`) {
+            formatted += '  '.repeat(pad) + token + nextToken + nextNextToken + '\n';
+            i += 2;
+          } else {
+            formatted += '  '.repeat(pad) + token + '\n';
+            pad += 1;
+          }
+        } else {
+          formatted += '  '.repeat(pad) + token + '\n';
+        }
+      }
+      req.body.rawContent = formatted.trimEnd();
+      workspaceStore.updateActiveRequest({ body: req.body });
+      bodyActionFeedback = 'Formatted XML';
+      setTimeout(() => (bodyActionFeedback = ''), 2000);
+    } catch (e: any) {
+      bodyActionFeedback = 'Error formatting XML: ' + (e.message || String(e));
+      setTimeout(() => (bodyActionFeedback = ''), 3000);
+    }
+  }
+
+  function formatTextBody() {
+    if (!req || (req.body.type !== 'text' && req.body.type !== 'raw')) return;
+    req.body.rawContent = (req.body.rawContent || '')
+      .split('\n')
+      .map(line => line.trimEnd())
+      .join('\n')
+      .trim();
+    workspaceStore.updateActiveRequest({ body: req.body });
+    bodyActionFeedback = 'Normalized lines & whitespace';
+    setTimeout(() => (bodyActionFeedback = ''), 2000);
+  }
+
+  function compressTextBody() {
+    if (!req || (req.body.type !== 'text' && req.body.type !== 'raw')) return;
+    req.body.rawContent = (req.body.rawContent || '').replace(/\s+/g, ' ').trim();
+    workspaceStore.updateActiveRequest({ body: req.body });
+    bodyActionFeedback = 'Compressed text whitespace';
+    setTimeout(() => (bodyActionFeedback = ''), 2000);
+  }
+
+  function formatOrCompressBody(action: 'format' | 'compress') {
+    if (!req) return;
+    if (req.body.type === 'json') {
+      action === 'format' ? formatJsonBody() : compressJsonBody();
+    } else if (req.body.type === 'xml') {
+      action === 'format' ? formatXmlBody() : compressXmlBody();
+    } else if (req.body.type === 'text' || req.body.type === 'raw') {
+      action === 'format' ? formatTextBody() : compressTextBody();
+    } else if (req.body.type === 'form-urlencoded' || req.body.type === 'multipart') {
+      cleanFormData();
     }
   }
 
@@ -151,10 +338,95 @@
   const apiKeyPlaceholder = '{{api_key}}';
   const varValuePlaceholder = 'value or {{$uuid}}';
   const jsonBodyPlaceholder = '{\n  "key": "value"\n}';
+  const xmlBodyPlaceholder = '<?xml version="1.0" encoding="UTF-8"?>\n<request>\n  <item id="1">sample</item>\n</request>';
+  const textBodyPlaceholder = 'Enter plain text body payload here...';
+  const formValuePlaceholder = 'value or {{param}}';
+  const multipartValuePlaceholder = 'Text value or {{param}}';
   const preScriptPlaceholder = '// JavaScript pre-request script\n// Available globals: req, yarac.getVar, yarac.setVar, faker\nconst token = faker.string.uuid();\nyarac.setVar("session_token", token);';
   const postScriptPlaceholder = '// JavaScript post-response script\n// Available globals: res, req, yarac.getVar, yarac.setVar, faker\nif (res.status === 200) {\n  const data = res.json();\n  console.log("Received response:", data);\n}';
   const assertPlaceholder = '// Single-line assertions:\nexpect(res.status).toBe(200);\nexpect(res.time).toBeLessThan(1500);\nexpect(res.json().status).toBe("success");';
   const testsPlaceholder = 'describe("User Service API", () => {\n  it("should return 200 OK", () => {\n    expect(res.status).toBe(200);\n  });\n\n  it("should match schema and payload", () => {\n    const data = res.json();\n    expect(data.id).toBeDefined();\n    expect(data.email).toContain("@");\n  });\n});';
+
+  let binaryFileInput = $state<HTMLInputElement | null>(null);
+  let multipartFileInput = $state<HTMLInputElement | null>(null);
+  let activeMultipartRowIdx = $state<number | null>(null);
+  let isBinaryDragging = $state(false);
+  let binarySelectedFileInfo = $state<{ name: string; size: number; type: string } | null>(null);
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+
+  function handleBinaryFileSelect(file: File) {
+    if (!req) return;
+    // Relative Path Anchoring per AGENTS.md: all file uploads strictly resolve relative to workspace root
+    req.body.binaryFilePath = `./fixtures/${file.name}`;
+    if (file.type) {
+      req.body.binaryContentType = file.type;
+    } else if (!req.body.binaryContentType) {
+      req.body.binaryContentType = 'application/octet-stream';
+    }
+    binarySelectedFileInfo = {
+      name: file.name,
+      size: file.size,
+      type: file.type || 'application/octet-stream'
+    };
+    workspaceStore.updateActiveRequest({ body: req.body });
+    bodyActionFeedback = `Selected file: ${file.name}`;
+    setTimeout(() => (bodyActionFeedback = ''), 2500);
+  }
+
+  function onBinaryFileInputChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (file) {
+      handleBinaryFileSelect(file);
+    }
+    target.value = '';
+  }
+
+  function handleBinaryDrop(e: DragEvent) {
+    e.preventDefault();
+    isBinaryDragging = false;
+    const file = e.dataTransfer?.files?.[0];
+    if (file) {
+      handleBinaryFileSelect(file);
+    }
+  }
+
+  function clearBinaryFile() {
+    if (!req) return;
+    req.body.binaryFilePath = '';
+    binarySelectedFileInfo = null;
+    workspaceStore.updateActiveRequest({ body: req.body });
+  }
+
+  function triggerMultipartFileBrowse(idx: number) {
+    activeMultipartRowIdx = idx;
+    multipartFileInput?.click();
+  }
+
+  function onMultipartFileInputChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (file && activeMultipartRowIdx !== null && req?.body?.formData) {
+      const item = req.body.formData[activeMultipartRowIdx];
+      if (item) {
+        item.value = `./fixtures/${file.name}`;
+        item.type = 'file';
+        if (file.type) {
+          item.contentType = file.type;
+        }
+        workspaceStore.updateActiveRequest({ body: req.body });
+        bodyActionFeedback = `Attached file to ${item.key || 'field'}: ${file.name}`;
+        setTimeout(() => (bodyActionFeedback = ''), 2500);
+      }
+    }
+    activeMultipartRowIdx = null;
+    target.value = '';
+  }
 </script>
 
 {#if req}
@@ -307,14 +579,6 @@
             {/each}
           </select>
         </div>
-      {:else if activeSubTab === 'body' && req.body.type === 'json'}
-        <button
-          type="button"
-          onclick={formatJsonBody}
-          class="text-[11px] text-sky-400 hover:text-sky-300 px-2 py-0.5 rounded hover:bg-slate-800 transition-colors font-mono"
-        >
-          Pretty JSON
-        </button>
       {/if}
     </div>
 
@@ -747,110 +1011,502 @@
 
       <!-- BODY TAB -->
       {:else if activeSubTab === 'body'}
-        <div class="h-full flex flex-col space-y-3">
-          <div class="flex items-center gap-3">
-            <span class="text-xs text-slate-400 font-medium">Body Type:</span>
+        <div class="h-full flex flex-col space-y-3 font-sans">
+          <!-- Body Type Selector & Action Toolbar -->
+          <div class="flex items-center justify-between shrink-0 flex-wrap gap-2 pb-1 border-b border-slate-800/80">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs text-slate-400 font-medium">Body Type:</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                {#each ['none', 'json', 'xml', 'text', 'form-urlencoded', 'multipart', 'binary'] as bType}
+                  <button
+                    type="button"
+                    onclick={() => setBodyType(bType as BodyType)}
+                    class="px-2.5 py-1 rounded text-xs font-medium transition-all {req.body.type === bType ? 'bg-sky-600/30 text-sky-300 border border-sky-500/50 shadow-sm shadow-sky-950' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'}"
+                  >
+                    {bType}
+                  </button>
+                {/each}
+              </div>
+            </div>
+
+            <!-- Toolbar Actions depending on Body Type -->
             <div class="flex items-center gap-2">
-              {#each ['none', 'json', 'form-urlencoded', 'multipart', 'raw'] as bType}
+              {#if bodyActionFeedback}
+                <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-300 font-mono animate-fade">
+                  {bodyActionFeedback}
+                </span>
+              {/if}
+
+              {#if req.body.type === 'json' || req.body.type === 'xml' || req.body.type === 'text' || req.body.type === 'raw'}
+                <button
+                  type="button"
+                  onclick={() => formatOrCompressBody('format')}
+                  class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-medium flex items-center gap-1 transition-colors"
+                  title="Format / Prettify payload"
+                >
+                  <span class="text-amber-400">✨</span> Format
+                </button>
+                <button
+                  type="button"
+                  onclick={() => formatOrCompressBody('compress')}
+                  class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 text-xs font-medium flex items-center gap-1 transition-colors"
+                  title="Minify / Compress payload"
+                >
+                  <span class="text-sky-400">⚡</span> Compress
+                </button>
                 <button
                   type="button"
                   onclick={() => {
-                    if (req) {
-                      req.body.type = bType as BodyType;
-                      workspaceStore.updateActiveRequest({ body: req.body });
+                    if (req?.body?.rawContent) {
+                      navigator.clipboard.writeText(req.body.rawContent);
+                      bodyActionFeedback = 'Copied to clipboard';
+                      setTimeout(() => bodyActionFeedback = '', 2000);
                     }
                   }}
-                  class="px-2.5 py-1 rounded text-xs font-medium transition-colors {req.body.type === bType ? 'bg-sky-600/30 text-sky-300 border border-sky-500/50' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'}"
+                  class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 text-xs transition-colors"
+                  title="Copy body to clipboard"
                 >
-                  {bType}
+                  📋 Copy
                 </button>
-              {/each}
+
+              {:else if req.body.type === 'form-urlencoded'}
+                <button
+                  type="button"
+                  onclick={() => addFormData('text')}
+                  class="px-2 py-1 rounded bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 border border-sky-500/40 text-xs font-medium flex items-center gap-1"
+                >
+                  + Add Field
+                </button>
+                <button
+                  type="button"
+                  onclick={cleanFormData}
+                  class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 text-xs"
+                  title="Clean empty fields"
+                >
+                  Clean / Trim
+                </button>
+
+              {:else if req.body.type === 'multipart'}
+                <button
+                  type="button"
+                  onclick={() => addFormData('text')}
+                  class="px-2 py-1 rounded bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 border border-sky-500/40 text-xs font-medium flex items-center gap-1"
+                >
+                  + Text Field
+                </button>
+                <button
+                  type="button"
+                  onclick={() => addFormData('file')}
+                  class="px-2 py-1 rounded bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/40 text-xs font-medium flex items-center gap-1"
+                >
+                  📁 + File Upload
+                </button>
+                <button
+                  type="button"
+                  onclick={cleanFormData}
+                  class="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 text-xs"
+                  title="Clean empty fields"
+                >
+                  Clean / Trim
+                </button>
+              {/if}
             </div>
           </div>
 
-          {#if req.body.type === 'json' || req.body.type === 'raw'}
-            <div class="flex-1 flex flex-col border border-slate-800 rounded-lg overflow-hidden bg-slate-950 min-h-[220px]">
-              <div class="bg-slate-900/60 px-3 py-1 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                <span>{req.body.type === 'json' ? 'JSON Payload' : 'Raw Text Payload'}</span>
-                <span class="font-mono text-slate-500">{req.body.rawContent.length} chars</span>
+          <!-- JSON / XML / TEXT EDITOR -->
+          {#if req.body.type === 'json' || req.body.type === 'xml' || req.body.type === 'text' || req.body.type === 'raw'}
+            <div class="flex-1 flex flex-col border border-slate-800 rounded-lg overflow-hidden bg-slate-950 min-h-[260px]">
+              <div class="bg-slate-900/60 px-3 py-1.5 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-slate-300">
+                    {req.body.type === 'json' ? 'JSON Payload' : req.body.type === 'xml' ? 'XML Document' : 'Plain Text Payload'}
+                  </span>
+                  <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800/80 text-sky-400 font-mono">
+                    {req.body.type === 'json' ? 'application/json' : req.body.type === 'xml' ? 'application/xml' : 'text/plain'}
+                  </span>
+                </div>
+                <div class="flex items-center gap-3 font-mono text-slate-500 text-[10px]">
+                  <span>{(req.body.rawContent || '').split('\n').length} lines</span>
+                  <span>{(req.body.rawContent || '').length} chars</span>
+                </div>
               </div>
               <textarea
                 bind:value={req.body.rawContent}
                 oninput={() => workspaceStore.updateActiveRequest({ body: req?.body })}
-                placeholder={req.body.type === 'json' ? jsonBodyPlaceholder : 'Enter raw body text here...'}
-                class="flex-1 w-full bg-slate-950 p-3 font-mono text-xs text-slate-100 resize-none focus:outline-none"
+                placeholder={req.body.type === 'json' ? jsonBodyPlaceholder : req.body.type === 'xml' ? xmlBodyPlaceholder : textBodyPlaceholder}
+                class="flex-1 w-full bg-slate-950 p-3 font-mono text-xs text-slate-100 resize-none focus:outline-none leading-relaxed"
+                spellcheck="false"
               ></textarea>
             </div>
 
-          {:else if req.body.type === 'form-urlencoded' || req.body.type === 'multipart'}
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Form Fields</span>
-                <button
-                  type="button"
-                  onclick={addFormData}
-                  class="text-xs text-sky-400 hover:text-sky-300 font-medium"
-                >
-                  + Add Field
-                </button>
+          <!-- FORM-URLENCODED -->
+          {:else if req.body.type === 'form-urlencoded'}
+            <div class="space-y-2 flex-1 flex flex-col">
+              <div class="flex items-center justify-between text-[11px] text-slate-400">
+                <span>Form URL-Encoded Key/Value Pairs (<code class="text-sky-400">application/x-www-form-urlencoded</code>)</span>
+                <span class="font-mono text-slate-500">{(req.body.formData || []).filter(f => f.enabled && f.key).length} active fields</span>
               </div>
 
-              <table class="w-full border-collapse border border-slate-800 text-left font-mono">
-                <thead>
-                  <tr class="bg-slate-900/80 text-slate-400 border-b border-slate-800 text-[11px]">
-                    <th class="w-8 p-2 text-center"></th>
-                    <th class="p-2 border-r border-slate-800">Field Key</th>
-                    <th class="p-2 border-r border-slate-800">Field Value</th>
-                    <th class="w-10 p-2 text-center"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each req.body.formData as item, idx (item.id)}
-                    <tr class="border-b border-slate-800/80 hover:bg-slate-900/30">
-                      <td class="p-2 text-center">
-                        <input
-                          type="checkbox"
-                          bind:checked={item.enabled}
-                          onchange={() => workspaceStore.updateActiveRequest({ body: req?.body })}
-                          class="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0"
-                        />
-                      </td>
-                      <td class="p-1 border-r border-slate-800">
-                        <input
-                          type="text"
-                          bind:value={item.key}
-                          placeholder="key"
-                          oninput={() => workspaceStore.updateActiveRequest({ body: req?.body })}
-                          class="w-full bg-transparent px-2 py-1 text-slate-200 focus:outline-none"
-                        />
-                      </td>
-                      <td class="p-1 border-r border-slate-800">
-                        <input
-                          type="text"
-                          bind:value={item.value}
-                          placeholder="value"
-                          oninput={() => workspaceStore.updateActiveRequest({ body: req?.body })}
-                          class="w-full bg-transparent px-2 py-1 text-slate-200 focus:outline-none"
-                        />
-                      </td>
-                      <td class="p-2 text-center">
-                        <button
-                          type="button"
-                          onclick={() => removeFormData(idx)}
-                          class="text-slate-500 hover:text-rose-400"
-                        >
-                          ✕
-                        </button>
-                      </td>
+              <div class="border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
+                <table class="w-full border-collapse text-left font-mono text-xs">
+                  <thead>
+                    <tr class="bg-slate-900/80 text-slate-400 border-b border-slate-800 text-[11px]">
+                      <th class="w-8 p-2 text-center"></th>
+                      <th class="p-2 border-r border-slate-800">Parameter Key</th>
+                      <th class="p-2 border-r border-slate-800">Parameter Value</th>
+                      <th class="w-10 p-2 text-center"></th>
                     </tr>
-                  {/each}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {#each (req.body.formData || []) as item, idx (item.id)}
+                      <tr class="border-b border-slate-800/80 hover:bg-slate-900/30">
+                        <td class="p-2 text-center">
+                          <input
+                            type="checkbox"
+                            bind:checked={item.enabled}
+                            onchange={() => workspaceStore.updateActiveRequest({ body: req?.body })}
+                            class="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0"
+                          />
+                        </td>
+                        <td class="p-1 border-r border-slate-800">
+                          <input
+                            type="text"
+                            bind:value={item.key}
+                            placeholder="param_name"
+                            oninput={() => {
+                              if (item.key.endsWith('~')) {
+                                item.key = item.key.slice(0, -1);
+                                item.enabled = false;
+                              } else if (item.key.startsWith('~')) {
+                                item.key = item.key.slice(1);
+                                item.enabled = false;
+                              }
+                              workspaceStore.updateActiveRequest({ body: req?.body });
+                            }}
+                            class="w-full bg-transparent px-2 py-1 text-sky-300 focus:outline-none"
+                          />
+                        </td>
+                        <td class="p-1 border-r border-slate-800">
+                          <input
+                            type="text"
+                            bind:value={item.value}
+                            placeholder={formValuePlaceholder}
+                            oninput={() => workspaceStore.updateActiveRequest({ body: req?.body })}
+                            class="w-full bg-transparent px-2 py-1 text-slate-200 focus:outline-none"
+                          />
+                        </td>
+                        <td class="p-2 text-center">
+                          <button
+                            type="button"
+                            onclick={() => removeFormData(idx)}
+                            class="text-slate-500 hover:text-rose-400 transition-colors"
+                            title="Remove field"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    {/each}
+                    {#if (!req.body.formData || req.body.formData.length === 0)}
+                      <tr>
+                        <td colspan="4" class="p-6 text-center text-slate-500 font-sans">
+                          No URL-encoded fields defined. Click <button type="button" onclick={() => addFormData('text')} class="text-sky-400 hover:underline">+ Add Field</button> to configure parameters.
+                        </td>
+                      </tr>
+                    {/if}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
+          <!-- MULTIPART FORM DATA (TEXT & FILE UPLOAD) -->
+          {:else if req.body.type === 'multipart'}
+            <div class="space-y-2 flex-1 flex flex-col">
+              <input
+                type="file"
+                bind:this={multipartFileInput}
+                onchange={onMultipartFileInputChange}
+                class="hidden"
+              />
+
+              <div class="flex items-center justify-between text-[11px] text-slate-400">
+                <span>Multipart Form Data (<code class="text-sky-400">multipart/form-data</code>) · Text & File references</span>
+                <span class="font-mono text-slate-500">{(req.body.formData || []).filter(f => f.enabled && f.key).length} active parts</span>
+              </div>
+
+              <div class="border border-slate-800 rounded-lg overflow-hidden bg-slate-950">
+                <table class="w-full border-collapse text-left font-mono text-xs">
+                  <thead>
+                    <tr class="bg-slate-900/80 text-slate-400 border-b border-slate-800 text-[11px]">
+                      <th class="w-8 p-2 text-center"></th>
+                      <th class="p-2 border-r border-slate-800 w-1/4">Field Name</th>
+                      <th class="p-2 border-r border-slate-800 w-24 text-center">Type</th>
+                      <th class="p-2 border-r border-slate-800">Value / File Path</th>
+                      <th class="w-10 p-2 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each (req.body.formData || []) as item, idx (item.id)}
+                      <tr class="border-b border-slate-800/80 hover:bg-slate-900/30">
+                        <td class="p-2 text-center">
+                          <input
+                            type="checkbox"
+                            bind:checked={item.enabled}
+                            onchange={() => workspaceStore.updateActiveRequest({ body: req?.body })}
+                            class="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0"
+                          />
+                        </td>
+                        <td class="p-1 border-r border-slate-800">
+                          <input
+                            type="text"
+                            bind:value={item.key}
+                            placeholder="field_name"
+                            oninput={() => {
+                              if (item.key.endsWith('~')) {
+                                item.key = item.key.slice(0, -1);
+                                item.enabled = false;
+                              } else if (item.key.startsWith('~')) {
+                                item.key = item.key.slice(1);
+                                item.enabled = false;
+                              }
+                              workspaceStore.updateActiveRequest({ body: req?.body });
+                            }}
+                            class="w-full bg-transparent px-2 py-1 text-sky-300 focus:outline-none"
+                          />
+                        </td>
+                        <td class="p-1 border-r border-slate-800 text-center font-sans">
+                          <button
+                            type="button"
+                            onclick={() => {
+                              item.type = item.type === 'file' ? 'text' : 'file';
+                              workspaceStore.updateActiveRequest({ body: req?.body });
+                            }}
+                            class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors {item.type === 'file' ? 'bg-purple-950/80 text-purple-300 border border-purple-800/60' : 'bg-slate-800 text-slate-300 border border-slate-700'}"
+                          >
+                            {item.type === 'file' ? '📁 File' : 'Aa Text'}
+                          </button>
+                        </td>
+                        <td class="p-1 border-r border-slate-800">
+                          {#if item.type === 'file'}
+                            <div class="flex items-center gap-1.5 px-1">
+                              <span class="text-purple-400 font-mono text-[11px]">@</span>
+                              <input
+                                type="text"
+                                value={item.value.startsWith('@') ? item.value.slice(1) : item.value}
+                                oninput={(e) => {
+                                  item.value = (e.target as HTMLInputElement).value;
+                                  workspaceStore.updateActiveRequest({ body: req?.body });
+                                }}
+                                placeholder="Relative path e.g. ./fixtures/avatar.png"
+                                class="w-full bg-transparent py-1 text-purple-200 focus:outline-none font-mono text-xs"
+                              />
+                              <button
+                                type="button"
+                                onclick={() => triggerMultipartFileBrowse(idx)}
+                                class="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 border border-purple-800/60 text-purple-200 text-[11px] font-sans font-medium whitespace-nowrap flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                                title="Browse local file to anchor relative path"
+                              >
+                                📁 Browse...
+                              </button>
+                            </div>
+                          {:else}
+                            <input
+                              type="text"
+                              bind:value={item.value}
+                              placeholder={multipartValuePlaceholder}
+                              oninput={() => workspaceStore.updateActiveRequest({ body: req?.body })}
+                              class="w-full bg-transparent px-2 py-1 text-slate-200 focus:outline-none"
+                            />
+                          {/if}
+                        </td>
+                        <td class="p-2 text-center">
+                          <button
+                            type="button"
+                            onclick={() => removeFormData(idx)}
+                            class="text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                            title="Remove field"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    {/each}
+                    {#if (!req.body.formData || req.body.formData.length === 0)}
+                      <tr>
+                        <td colspan="5" class="p-6 text-center text-slate-500 font-sans">
+                          No multipart fields defined. Click 
+                          <button type="button" onclick={() => addFormData('text')} class="text-sky-400 hover:underline mx-1 cursor-pointer">+ Text Field</button>
+                          or 
+                          <button type="button" onclick={() => addFormData('file')} class="text-purple-400 hover:underline mx-1 cursor-pointer">📁 + File Upload</button>
+                          to configure multipart data.
+                        </td>
+                      </tr>
+                    {/if}
+                  </tbody>
+                </table>
+              </div>
+              <p class="text-[11px] text-slate-500 font-sans">
+                💡 <span class="font-medium text-slate-400">Relative Path Anchoring:</span> File uploads strictly resolve relative to workspace root (e.g. <code class="text-purple-300 font-mono">./fixtures/avatar.png</code>). Absolute machine paths are prevented from persisting.
+              </p>
+            </div>
+
+          <!-- BINARY FILE UPLOAD -->
+          {:else if req.body.type === 'binary'}
+            <div class="space-y-4 max-w-2xl bg-slate-900/40 p-5 border border-slate-800 rounded-lg">
+              <input
+                type="file"
+                bind:this={binaryFileInput}
+                onchange={onBinaryFileInputChange}
+                class="hidden"
+              />
+
+              <div class="flex items-start justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider block">Binary File Payload</span>
+                  <p class="text-[11px] text-slate-500 mt-1">
+                    Upload raw file content directly as request body. Resolves relative to workspace root.
+                  </p>
+                </div>
+                {#if req.body.binaryFilePath}
+                  <button
+                    type="button"
+                    onclick={clearBinaryFile}
+                    class="text-[11px] text-slate-500 hover:text-rose-400 flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Clear selected file"
+                  >
+                    ✕ Clear File
+                  </button>
+                {/if}
+              </div>
+
+              <!-- Real-world Drag & Drop / File Browser Dropzone -->
+              <div
+                role="region"
+                aria-label="File dropzone"
+                ondragover={(e) => { e.preventDefault(); isBinaryDragging = true; }}
+                ondragleave={() => { isBinaryDragging = false; }}
+                ondrop={handleBinaryDrop}
+                class="border-2 border-dashed rounded-lg p-5 transition-all text-center {isBinaryDragging ? 'border-sky-500 bg-sky-500/10' : req.body.binaryFilePath ? 'border-slate-700 bg-slate-950/60' : 'border-slate-800 hover:border-slate-700 bg-slate-950/30'}"
+              >
+                {#if req.body.binaryFilePath}
+                  <div class="flex items-center justify-between gap-4 text-left">
+                    <div class="flex items-center gap-3 min-w-0">
+                      <div class="w-10 h-10 rounded bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-xl shrink-0">
+                        📦
+                      </div>
+                      <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                          <span class="font-mono text-xs font-semibold text-sky-300 truncate">
+                            {binarySelectedFileInfo?.name || req.body.binaryFilePath.split(/[/\\]/).pop()}
+                          </span>
+                          {#if binarySelectedFileInfo?.size}
+                            <span class="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-mono">
+                              {formatFileSize(binarySelectedFileInfo.size)}
+                            </span>
+                          {/if}
+                        </div>
+                        <p class="text-[11px] text-slate-500 font-mono truncate mt-0.5">
+                          {req.body.binaryFilePath}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onclick={() => binaryFileInput?.click()}
+                        class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        📁 Change File...
+                      </button>
+                    </div>
+                  </div>
+                {:else}
+                  <div class="space-y-2 py-2">
+                    <div class="text-3xl text-slate-600">📁</div>
+                    <div>
+                      <button
+                        type="button"
+                        onclick={() => binaryFileInput?.click()}
+                        class="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        📁 Browse File to Upload
+                      </button>
+                    </div>
+                    <p class="text-[11px] text-slate-500">
+                      or drag & drop a file here to anchor relative to workspace root
+                    </p>
+                  </div>
+                {/if}
+              </div>
+
+              <!-- Relative File Path Input -->
+              <div class="space-y-2">
+                <label for="binary-file-path-input" class="text-xs font-medium text-slate-300 flex items-center justify-between">
+                  <span>Relative File Path</span>
+                  {#if req.body.binaryFilePath && (req.body.binaryFilePath.startsWith('C:') || req.body.binaryFilePath.startsWith('/') || req.body.binaryFilePath.startsWith('\\'))}
+                    <span class="text-[10px] text-amber-400 font-normal">⚠️ Should be relative to workspace root (e.g. ./fixtures/file)</span>
+                  {/if}
+                </label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="binary-file-path-input"
+                    type="text"
+                    bind:value={req.body.binaryFilePath}
+                    placeholder="e.g. ./fixtures/data.bin or ./sample.pdf"
+                    oninput={() => workspaceStore.updateActiveRequest({ body: req?.body })}
+                    class="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-1.5 font-mono text-xs text-sky-300 focus:outline-none focus:border-sky-500"
+                  />
+                  <button
+                    type="button"
+                    onclick={() => binaryFileInput?.click()}
+                    class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium whitespace-nowrap border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    📁 Browse...
+                  </button>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <label for="binary-content-type-input" class="text-xs font-medium text-slate-300">Content-Type Header</label>
+                <input
+                  id="binary-content-type-input"
+                  type="text"
+                  bind:value={req.body.binaryContentType}
+                  placeholder="application/octet-stream"
+                  oninput={() => workspaceStore.updateActiveRequest({ body: req?.body })}
+                  class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 font-mono text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                />
+                <div class="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span class="text-[10px] text-slate-500">Presets:</span>
+                  {#each ['application/octet-stream', 'application/pdf', 'image/png', 'application/zip', 'audio/mpeg'] as mime}
+                    <button
+                      type="button"
+                      onclick={() => {
+                        if (!req) return;
+                        req.body.binaryContentType = mime;
+                        workspaceStore.updateActiveRequest({ body: req.body });
+                      }}
+                      class="px-2 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 text-[10px] font-mono text-slate-400 hover:text-sky-300 border border-slate-700/60 transition-colors cursor-pointer"
+                    >
+                      {mime}
+                    </button>
+                  {/each}
+                </div>
+              </div>
+            </div>
+
+          <!-- NONE -->
           {:else}
-            <div class="p-6 text-center text-slate-500 border border-dashed border-slate-800 rounded-lg font-sans">
-              This request does not send a body payload. Select JSON, Form, or Raw above to configure a body.
+            <div class="p-8 text-center text-slate-500 border border-dashed border-slate-800 rounded-lg font-sans space-y-2">
+              <span class="text-2xl block text-slate-600">∅</span>
+              <p class="text-xs text-slate-400 font-medium">This request does not send a body payload.</p>
+              <p class="text-[11px] text-slate-500">
+                Choose <button type="button" onclick={() => setBodyType('json')} class="text-sky-400 hover:underline">JSON</button>,
+                <button type="button" onclick={() => setBodyType('xml')} class="text-sky-400 hover:underline">XML</button>,
+                <button type="button" onclick={() => setBodyType('form-urlencoded')} class="text-sky-400 hover:underline">Form</button>,
+                <button type="button" onclick={() => setBodyType('multipart')} class="text-sky-400 hover:underline">Multipart</button>,
+                or <button type="button" onclick={() => setBodyType('binary')} class="text-sky-400 hover:underline">Binary</button> above to attach a payload.
+              </p>
             </div>
           {/if}
         </div>

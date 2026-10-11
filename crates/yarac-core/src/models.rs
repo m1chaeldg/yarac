@@ -146,12 +146,18 @@ impl FlowControl {
 pub enum BodyType {
     None,
     Json(String),
+    Xml(String),
+    Text(String),
     Raw {
         content: String,
         content_type: Option<String>,
     },
     Form(IndexMap<String, String>),
     Multipart(Vec<MultipartPart>),
+    Binary {
+        file_path: String,
+        content_type: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
