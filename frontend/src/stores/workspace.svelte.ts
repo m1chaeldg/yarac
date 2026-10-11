@@ -1328,11 +1328,112 @@ export class WorkspaceStore {
 
     if (typeof targetIndex === 'number') {
       const targetColReqs = ws.requests.filter(r => r.collectionId === targetCollectionId && r.id !== requestId);
-      targetColReqs.splice(targetIndex, 0, req);
+      const safeIndex = Math.max(0, Math.min(targetIndex, targetColReqs.length));
+      targetColReqs.splice(safeIndex, 0, req);
       const otherReqs = ws.requests.filter(r => r.collectionId !== targetCollectionId);
       ws.requests = [...otherReqs, ...targetColReqs];
     }
     this.persistToDisk();
+  }
+
+  // Recalculates hierarchical path strings for a collection and all its descendants
+  private recalculateCollectionPaths(collectionId: string): void {
+    const ws = this.currentWorkspace;
+    const col = ws.collections.find(c => c.id === collectionId);
+    if (!col) return;
+
+    const oldPath = col.path || col.name;
+    if (col.parentId) {
+      const parent = ws.collections.find(c => c.id === col.parentId);
+      col.path = parent ? `${parent.path || parent.name}/${col.name}` : col.name;
+    } else {
+      col.path = col.name;
+    }
+    const newPath = col.path;
+
+    if (oldPath !== newPath) {
+      // Cascade to subfolders
+      for (const sub of ws.collections) {
+        if (sub.parentId === col.id || (sub.path && sub.path.startsWith(oldPath + '/'))) {
+          this.recalculateCollectionPaths(sub.id);
+        }
+      }
+      // Cascade to requests
+      for (const req of ws.requests) {
+        if (req.collectionId === col.id) {
+          req.folderPath = newPath;
+        } else if (req.folderPath && req.folderPath.startsWith(oldPath + '/')) {
+          req.folderPath = newPath + req.folderPath.substring(oldPath.length);
+        }
+      }
+    }
+  }
+
+  // Check if targetColId is a descendant of sourceColId to prevent cycles
+  isCollectionDescendant(sourceColId: string, targetColId: string): boolean {
+    if (sourceColId === targetColId) return true;
+    const ws = this.currentWorkspace;
+    let curr = ws.collections.find(c => c.id === targetColId);
+    while (curr && curr.parentId) {
+      if (curr.parentId === sourceColId) return true;
+      curr = ws.collections.find(c => c.id === curr!.parentId);
+    }
+    return false;
+  }
+
+  // Moves a collection/folder inside another collection or folder as a nested subfolder
+  nestCollection(sourceColId: string, targetParentColId: string | null): boolean {
+    const ws = this.currentWorkspace;
+    const sourceCol = ws.collections.find(c => c.id === sourceColId);
+    if (!sourceCol) return false;
+
+    // Prevent making a collection its own descendant
+    if (targetParentColId && this.isCollectionDescendant(sourceColId, targetParentColId)) {
+      return false;
+    }
+
+    sourceCol.parentId = targetParentColId || undefined;
+    this.recalculateCollectionPaths(sourceColId);
+    this.persistToDisk();
+    return true;
+  }
+
+  // Reorders collections relative to a target collection (before, after, or reparenting)
+  reorderOrMoveCollection(sourceColId: string, targetColId: string, position: 'before' | 'after' | 'inside'): boolean {
+    const ws = this.currentWorkspace;
+    if (sourceColId === targetColId) return false;
+
+    const sourceCol = ws.collections.find(c => c.id === sourceColId);
+    const targetCol = ws.collections.find(c => c.id === targetColId);
+    if (!sourceCol || !targetCol) return false;
+
+    if (position === 'inside') {
+      return this.nestCollection(sourceColId, targetColId);
+    }
+
+    // Moving 'before' or 'after' targetCol adopts targetCol's parentId (same hierarchical level)
+    if (this.isCollectionDescendant(sourceColId, targetCol.parentId || '')) {
+      return false;
+    }
+
+    sourceCol.parentId = targetCol.parentId;
+    this.recalculateCollectionPaths(sourceColId);
+
+    // Reorder in collections array
+    const sourceIdx = ws.collections.findIndex(c => c.id === sourceColId);
+    if (sourceIdx !== -1) {
+      ws.collections.splice(sourceIdx, 1);
+    }
+    let targetIdx = ws.collections.findIndex(c => c.id === targetColId);
+    if (targetIdx !== -1) {
+      if (position === 'after') targetIdx += 1;
+      ws.collections.splice(targetIdx, 0, sourceCol);
+    } else {
+      ws.collections.push(sourceCol);
+    }
+
+    this.persistToDisk();
+    return true;
   }
 
   reorderCollections(fromIndex: number, toIndex: number): void {

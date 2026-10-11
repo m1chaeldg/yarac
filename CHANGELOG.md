@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.3.4] - 2026-10-11
+
+### Added
+- **Hierarchical Drag-and-Drop for Collections, Subfolders, Nested Folders & Requests**:
+  - Drag requests into any collection, subfolder, or arbitrarily nested folder with automatic parent path cascade and target folder auto-expansion.
+  - Three-zone folder drag interaction:
+    - Top 25%: Reorder before sibling folder.
+    - Bottom 25%: Reorder after sibling folder.
+    - Middle 50%: Nest into target folder as a subfolder.
+  - Reordering and reparenting nested folders across different tree levels.
+  - Dedicated root dropzone to easily un-nest subfolders back to top-level workspace root.
+  - Cycle prevention preventing parent folders from being dropped into themselves or their own descendants.
+  - Automated test suite `src/utils/testDragAndDrop.ts` verifying request reparenting, folder nesting, path cascading, cycle rejection, and root restoration.
 
 ## [0.3.3] - 2026-10-10
 
