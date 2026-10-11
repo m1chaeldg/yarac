@@ -4,10 +4,12 @@
   import ResponseTestsTab from './response/ResponseTestsTab.svelte';
   import ResponseTimelineTab from './response/ResponseTimelineTab.svelte';
   import ResponseVisualizer from './response/ResponseVisualizer.svelte';
+  import JsonTreeView from './response/JsonTreeView.svelte';
   import { parseTableData } from '../utils/responseUtils';
   import { calculateTestSummary } from '../utils/responseMetrics';
   import { formatDuration, formatSize, getStatusBadgeColor } from '../utils/statusUtils';
   import { formatXmlString } from '../utils/xmlUtils';
+  import { formatJsonString, compressJsonString } from '../utils/jsonUtils';
 
   export interface AssertionResult {
     name: string;
@@ -56,6 +58,9 @@
   }: Props = $props();
 
   let activeView = $state<'json' | 'table' | 'visualizer' | 'html' | 'xml' | 'raw' | 'headers' | 'tests' | 'timeline'>('json');
+  let jsonSubMode = $state<'code' | 'tree'>('code');
+  let jsonExpandVersion = $state(0);
+  let jsonCollapseVersion = $state(0);
   let isToolsMenuOpen = $state(false);
   let copyFeedback = $state('');
 
@@ -70,6 +75,37 @@
 
   let tableData = $derived(parseTableData(parsedJson));
   let testSummary = $derived(calculateTestSummary(response?.assertions));
+
+  // JSON formatting & compression actions
+  function handleFormatJson() {
+    if (!response?.body) return;
+    try {
+      response.body = formatJsonString(response.body, 2);
+      flashFeedback('Prettified JSON');
+    } catch (e: any) {
+      flashFeedback('Invalid JSON');
+    }
+  }
+
+  function handleCompressJson() {
+    if (!response?.body) return;
+    try {
+      response.body = compressJsonString(response.body);
+      flashFeedback('Compressed JSON');
+    } catch (e: any) {
+      flashFeedback('Invalid JSON');
+    }
+  }
+
+  function handleExpandAllTree() {
+    jsonExpandVersion += 1;
+    flashFeedback('Expanded all nodes');
+  }
+
+  function handleCollapseAllTree() {
+    jsonCollapseVersion += 1;
+    flashFeedback('Collapsed all nodes');
+  }
 
   // Tool Actions
   function copyResponse() {
@@ -305,8 +341,87 @@
         <p class="text-[11px] text-slate-600">Hit "Send" to inspect the live response.</p>
       </div>
     {:else if activeView === 'json'}
-      <div class="p-3 font-mono text-slate-200 text-xs">
-        <pre class="whitespace-pre-wrap break-all leading-relaxed">{response.body}</pre>
+      <div class="h-full flex flex-col overflow-hidden">
+        <!-- JSON Controls Sub-toolbar -->
+        <div class="h-8 px-3 bg-apple-surface-tile-3 border-b border-apple-hairline-dark/60 flex items-center justify-between shrink-0 gap-2">
+          <!-- View submode switcher (Code / Tree) -->
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              onclick={() => jsonSubMode = 'code'}
+              class="px-2 py-0.5 rounded-apple-sm text-[11px] font-medium transition-colors cursor-pointer {jsonSubMode === 'code' ? 'bg-apple-surface-tile-1 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
+            >
+              Code
+            </button>
+            <button
+              type="button"
+              onclick={() => jsonSubMode = 'tree'}
+              class="px-2 py-0.5 rounded-apple-sm text-[11px] font-medium transition-colors cursor-pointer {jsonSubMode === 'tree' ? 'bg-apple-surface-tile-1 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
+            >
+              Tree
+            </button>
+          </div>
+
+          <!-- Action buttons based on submode -->
+          <div class="flex items-center gap-1.5">
+            {#if jsonSubMode === 'code'}
+              <button
+                type="button"
+                onclick={handleFormatJson}
+                title="Prettify JSON (2-space indent)"
+                class="px-2 py-0.5 rounded-apple-sm bg-apple-surface-tile-2 hover:bg-apple-surface-tile-1 text-apple-body-on-dark hover:text-white border border-apple-hairline-dark/80 text-[11px] font-medium transition-colors cursor-pointer"
+              >
+                Format
+              </button>
+              <button
+                type="button"
+                onclick={handleCompressJson}
+                title="Minify JSON"
+                class="px-2 py-0.5 rounded-apple-sm bg-apple-surface-tile-2 hover:bg-apple-surface-tile-1 text-apple-body-on-dark hover:text-white border border-apple-hairline-dark/80 text-[11px] font-medium transition-colors cursor-pointer"
+              >
+                Compress
+              </button>
+            {:else}
+              <button
+                type="button"
+                onclick={handleExpandAllTree}
+                title="Expand all tree nodes"
+                class="px-2 py-0.5 rounded-apple-sm bg-apple-surface-tile-2 hover:bg-apple-surface-tile-1 text-apple-body-on-dark hover:text-white border border-apple-hairline-dark/80 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <span>↕</span> Expand All
+              </button>
+              <button
+                type="button"
+                onclick={handleCollapseAllTree}
+                title="Collapse all tree nodes"
+                class="px-2 py-0.5 rounded-apple-sm bg-apple-surface-tile-2 hover:bg-apple-surface-tile-1 text-apple-body-on-dark hover:text-white border border-apple-hairline-dark/80 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <span>↔</span> Collapse All
+              </button>
+            {/if}
+          </div>
+        </div>
+
+        <!-- JSON Viewport Content -->
+        <div class="flex-1 overflow-auto">
+          {#if jsonSubMode === 'code'}
+            <div class="p-3 font-mono text-slate-200 text-xs">
+              <pre class="whitespace-pre-wrap break-all leading-relaxed">{response.body}</pre>
+            </div>
+          {:else}
+            {#if parsedJson !== null}
+              <JsonTreeView
+                data={parsedJson}
+                expandVersion={jsonExpandVersion}
+                collapseVersion={jsonCollapseVersion}
+              />
+            {:else}
+              <div class="p-6 text-center text-apple-ink-muted-48 italic">
+                Invalid JSON body. Switch to "Code" view to inspect syntax.
+              </div>
+            {/if}
+          {/if}
+        </div>
       </div>
     {:else if activeView === 'table'}
       <ResponseTableViewer columns={tableData.columns} rows={tableData.rows} />
