@@ -158,16 +158,33 @@
   }
 
   function handleColHeaderDragOver(e: DragEvent, colId: string) {
+    if (!draggedReqId && (!draggedColId || draggedColId === colId)) return;
     e.preventDefault();
+
     if (draggedReqId) {
       dragOverColId = colId;
       dragOverReqId = null;
       dropPosition = 'inside';
     } else if (draggedColId && draggedColId !== colId) {
+      // Disallow dragging into any of its own descendants to prevent cyclic parent-child links
+      if (workspaceStore.isCollectionDescendant(draggedColId, colId)) {
+        return;
+      }
+
       dragOverColId = colId;
       dragOverReqId = null;
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      dropPosition = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+      const relativeY = e.clientY - rect.top;
+      const height = rect.height;
+
+      // 3-zone calculation: top 25% = before, bottom 25% = after, middle 50% = inside
+      if (relativeY < height * 0.25) {
+        dropPosition = 'before';
+      } else if (relativeY > height * 0.75) {
+        dropPosition = 'after';
+      } else {
+        dropPosition = 'inside';
+      }
     }
   }
 
@@ -178,16 +195,38 @@
     if (draggedReqId) {
       workspaceStore.moveRequestToCollection(draggedReqId, targetColId);
       collapsedColIds[targetColId] = false;
-      showToast('Moved into collection', '📁');
+      showToast('Moved into folder', '📁');
     } else if (draggedColId && draggedColId !== targetColId) {
-      const cols = workspaceStore.currentWorkspace.collections;
-      const fromIdx = cols.findIndex(c => c.id === draggedColId);
-      let toIdx = cols.findIndex(c => c.id === targetColId);
-      if (fromIdx !== -1 && toIdx !== -1) {
-        if (dropPosition === 'after') toIdx += 1;
-        const adjustedTarget = fromIdx < toIdx ? toIdx - 1 : toIdx;
-        workspaceStore.reorderCollections(fromIdx, adjustedTarget);
-        showToast('Collection reordered', '↕️');
+      if (workspaceStore.isCollectionDescendant(draggedColId, targetColId)) {
+        showToast('Cannot move folder into itself or subfolder', '⚠️');
+        handleDragEnd();
+        return;
+      }
+
+      const pos = dropPosition || 'inside';
+      const success = workspaceStore.reorderOrMoveCollection(draggedColId, targetColId, pos);
+      if (success) {
+        if (pos === 'inside') {
+          collapsedColIds[targetColId] = false;
+          showToast('Nested into folder', '📁');
+        } else {
+          showToast('Folder reordered', '↕️');
+        }
+      }
+    }
+
+    handleDragEnd();
+  }
+
+  function handleDropToRoot(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (draggedColId) {
+      const sourceCol = workspaceStore.currentWorkspace.collections.find(c => c.id === draggedColId);
+      if (sourceCol && sourceCol.parentId) {
+        workspaceStore.nestCollection(draggedColId, null);
+        showToast('Moved folder to root', '📁');
       }
     }
 
@@ -878,6 +917,19 @@
       {#each collectionTree as rootNode (rootNode.col.id)}
         {@render renderTreeNode(rootNode)}
       {/each}
+
+      <!-- Drop target for moving nested folders back to root level -->
+      {#if draggedColId}
+        <div
+          role="region"
+          aria-label="Move to root"
+          ondragover={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          ondrop={handleDropToRoot}
+          class="mt-2 p-2 border-2 border-dashed border-apple-hairline-dark/60 hover:border-apple-primary/80 rounded-apple-sm text-center text-[11px] text-apple-body-muted hover:text-apple-primary-on-dark transition-colors cursor-pointer bg-apple-surface-tile-2/40"
+        >
+          <span>📁 Drop here to move to root</span>
+        </div>
+      {/if}
     </div>
   </div>
 
