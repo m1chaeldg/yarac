@@ -1,7 +1,7 @@
 version = "1.0"
 name = "New Request"
-method = "GET"
-url = "{{base_url}}/api/v1/resource"
+method = "POST"
+url = "https://postman-echo.com/post"
 
 [settings]
 inherit_auth = true
@@ -21,3 +21,33 @@ max_retries = 3
 delay_ms = 0
 jitter_min_ms = 0
 jitter_max_ms = 0
+
+[body.json]
+```json
+[
+  {
+    "id": 1,
+    "name": "Jane Doe",
+    "email": "jane.doe@example.com",
+    "role": "Software Engineer",
+    "isActive": true,
+    "skills": ["JavaScript", "TypeScript", "React", "Node.js"]
+  },
+  {
+    "id": 2,
+    "name": "John Smith",
+    "email": "john.smith@example.com",
+    "role": "Product Manager",
+    "isActive": false,
+    "skills": ["Agile", "Scrum", "Roadmapping", "User Research"]
+  },
+  {
+    "id": 3,
+    "name": "Alice Johnson",
+    "email": "alice.j@example.com",
+    "role": "UX Designer",
+    "isActive": true,
+    "skills": ["Figma", "Wireframing", "UI/UX", "Prototyping"]
+  }
+]
+```

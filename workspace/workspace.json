@@ -38,7 +38,8 @@
   ],
   "active_environment_id": "env_prod",
   "open_tabs": [
-    "req_create_user_account"
+    "req_create_user_account",
+    "req_new_request"
   ],
-  "active_tab": "req_create_user_account"
+  "active_tab": "req_new_request"
 }
