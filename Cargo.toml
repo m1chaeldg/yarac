@@ -9,6 +9,7 @@ members = [
     "crates/yarac-importer",
     "crates/yarac-mcp",
     "crates/yarac-cli",
+    "crates/yarac-ui",
 ]
 
 [workspace.package]
