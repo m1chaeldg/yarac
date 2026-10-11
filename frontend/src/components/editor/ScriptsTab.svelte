@@ -73,7 +73,7 @@
       <span class="font-mono text-indigo-400">
         {activeScriptType === 'preRequest' ? '// Runs before HTTP request is dispatched' : '// Runs immediately after HTTP response is received'}
       </span>
-      <span class="text-slate-500 font-mono text-[10px]">Isolated Deno Core Runtime (5000ms max)</span>
+      <span class="text-slate-500 font-mono text-[10px]">Async/Await Default • Isolated Deno Core (5000ms max)</span>
     </div>
 
     {#if activeScriptType === 'preRequest'}

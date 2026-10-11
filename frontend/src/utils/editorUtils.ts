@@ -115,11 +115,13 @@ export const SCRIPT_SNIPPETS = {
   preRequest: [
     { label: '+ Faker Email', snippet: "const email = faker.internet.email();\nyarac.setVar('user_email', email);" },
     { label: '+ Faker Name', snippet: "const name = faker.person.fullName();\nyarac.setVar('user_name', name);" },
-    { label: '+ Header Timestamp', snippet: "req.headers['X-Timestamp'] = Date.now().toString();" }
+    { label: '+ Header Timestamp', snippet: "req.headers['X-Timestamp'] = Date.now().toString();" },
+    { label: '+ Async Await', snippet: "const token = await Promise.resolve('async-token-' + Date.now());\nyarac.setHeader('Authorization', token);" }
   ],
   postResponse: [
     { label: '+ Extract Token', snippet: "const data = res.json();\nif (data?.token) {\n  yarac.setVar('auth_token', data.token);\n}" },
-    { label: '+ Log Status', snippet: "console.log('Response Status:', res.status);" }
+    { label: '+ Log Status', snippet: "console.log('Response Status:', res.status);" },
+    { label: '+ Async Extract', snippet: "const payload = await Promise.resolve(res.json());\nif (payload?.id) {\n  yarac.setVar('item_id', String(payload.id));\n}" }
   ]
 };
 
@@ -127,21 +129,22 @@ export const ASSERT_SNIPPETS = [
   { label: '+ Status 200', snippet: 'expect(res.status).toBe(200);' },
   { label: '+ Latency < 1000ms', snippet: 'expect(res.time).toBeLessThan(1000);' },
   { label: '+ Content-Type JSON', snippet: "expect(res.headers['content-type']).toContain('application/json');" },
-  { label: '+ Body ID Defined', snippet: 'expect(res.json().id).toBeDefined();' }
+  { label: '+ Body ID Defined', snippet: 'expect(res.json().id).toBeDefined();' },
+  { label: '+ Async Assert', snippet: '(await Promise.resolve(res.json())).status === "ok"' }
 ];
 
 export const BDD_TEMPLATE = `describe('Response Contract', () => {
-  it('should return valid status and body', () => {
+  it('should return valid status and body', async () => {
     expect(res.status).toBe(200);
-    const body = res.json();
+    const body = await Promise.resolve(res.json());
     expect(body).toBeDefined();
   });
 });`;
 
 export const SCRIPT_PLACEHOLDERS = {
-  preRequest: '// JavaScript pre-request script\n// Available globals: req, yarac.getVar, yarac.setVar, faker\nconst token = faker.string.uuid();\nyarac.setVar("session_token", token);',
-  postResponse: '// JavaScript post-response script\n// Available globals: res, req, yarac.getVar, yarac.setVar, faker\nif (res.status === 200) {\n  const data = res.json();\n  console.log("Received response:", data);\n}',
-  assert: '// Single-line assertions:\nexpect(res.status).toBe(200);\nexpect(res.time).toBeLessThan(1500);\nexpect(res.json().status).toBe("success");',
-  tests: 'describe("User Service API", () => {\n  it("should return 200 OK", () => {\n    expect(res.status).toBe(200);\n  });\n\n  it("should match schema and payload", () => {\n    const data = res.json();\n    expect(data.id).toBeDefined();\n    expect(data.email).toContain("@");\n  });\n});'
+  preRequest: '// JavaScript pre-request script (async/await supported by default)\n// Available globals: req, yarac.getVar, yarac.setVar, faker\nconst token = faker.string.uuid();\nyarac.setVar("session_token", token);',
+  postResponse: '// JavaScript post-response script (async/await supported by default)\n// Available globals: res, req, yarac.getVar, yarac.setVar, faker\nif (res.status === 200) {\n  const data = res.json();\n  console.log("Received response:", data);\n}',
+  assert: '// Single-line assertions (async/await supported by default):\nexpect(res.status).toBe(200);\nawait Promise.resolve(res.json().status) === "success";',
+  tests: 'describe("User Service API", () => {\n  it("should return 200 OK", async () => {\n    expect(res.status).toBe(200);\n  });\n\n  it("should match schema and payload", async () => {\n    const data = await Promise.resolve(res.json());\n    expect(data.id).toBeDefined();\n    expect(data.email).toContain("@");\n  });\n});'
 };
 

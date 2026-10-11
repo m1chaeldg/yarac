@@ -41,7 +41,7 @@
   <div class="flex-1 flex flex-col border border-slate-800 rounded-lg overflow-hidden bg-slate-950 min-h-[220px]">
     <div class="bg-slate-900/60 px-3 py-1.5 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
       <span class="font-mono text-teal-400">// Available matchers: toBe, toEqual, toBeDefined, toBeNull, toBeGreaterThan, toContain</span>
-      <span class="text-slate-500 font-mono text-[10px]">Response results shown under "Test Results"</span>
+      <span class="text-slate-500 font-mono text-[10px]">Async/Await Default • Live Assertions</span>
     </div>
     <textarea
       value={req.assert || ''}

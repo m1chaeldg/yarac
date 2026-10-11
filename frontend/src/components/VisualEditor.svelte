@@ -12,7 +12,7 @@
   import FlowPanel from './FlowPanel.svelte';
   import { COMMON_HEADER_PRESETS, createEmptyHeader } from '../utils/editorUtils';
 
-  let activeSubTab = $state<'params' | 'headers' | 'variables' | 'auth' | 'body' | 'scripts' | 'assert' | 'tests' | 'settings' | 'flow'>('headers');
+  let activeSubTab = $state<'body' | 'params' | 'headers' | 'variables' | 'auth' | 'scripts' | 'assert' | 'tests' | 'settings' | 'flow'>('body');
 
   let req = $derived(workspaceStore.activeRequest);
 
@@ -28,6 +28,20 @@
     <!-- Sub-Tab Navigation Bar -->
     <div class="h-9 border-b border-slate-800 bg-slate-900/60 px-3 flex items-center justify-between shrink-0 overflow-x-auto">
       <div class="flex items-center gap-1">
+        <!-- BODY -->
+        <button
+          type="button"
+          onclick={() => activeSubTab = 'body'}
+          class="px-2 py-1 rounded font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'body' ? 'bg-slate-800 text-sky-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
+        >
+          <span>Body</span>
+          {#if req.body.type !== 'none'}
+            <span class="text-[10px] px-1 rounded bg-slate-800 text-amber-400 font-mono uppercase">
+              {req.body.type}
+            </span>
+          {/if}
+        </button>
+
         <!-- PARAMS -->
         <button
           type="button"
@@ -79,20 +93,6 @@
           <span>Auth</span>
           {#if req.auth.type !== 'none' && req.auth.type !== 'inherit'}
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-          {/if}
-        </button>
-
-        <!-- BODY -->
-        <button
-          type="button"
-          onclick={() => activeSubTab = 'body'}
-          class="px-2 py-1 rounded font-medium transition-colors flex items-center gap-1 cursor-pointer {activeSubTab === 'body' ? 'bg-slate-800 text-sky-400 font-semibold' : 'text-slate-400 hover:text-slate-200'}"
-        >
-          <span>Body</span>
-          {#if req.body.type !== 'none'}
-            <span class="text-[10px] px-1 rounded bg-slate-800 text-amber-400 font-mono uppercase">
-              {req.body.type}
-            </span>
           {/if}
         </button>
 
@@ -178,7 +178,9 @@
 
     <!-- Sub-Tab Content Viewport -->
     <div class="flex-1 overflow-y-auto p-3">
-      {#if activeSubTab === 'params'}
+      {#if activeSubTab === 'body'}
+        <BodyTab {req} />
+      {:else if activeSubTab === 'params'}
         <ParamsTab {req} />
       {:else if activeSubTab === 'headers'}
         <HeadersTab {req} />
@@ -186,8 +188,6 @@
         <VariablesTab {req} />
       {:else if activeSubTab === 'auth'}
         <AuthTab {req} />
-      {:else if activeSubTab === 'body'}
-        <BodyTab {req} />
       {:else if activeSubTab === 'scripts'}
         <ScriptsTab {req} />
       {:else if activeSubTab === 'assert'}

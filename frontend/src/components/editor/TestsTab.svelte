@@ -38,7 +38,7 @@
   <div class="flex-1 flex flex-col border border-slate-800 rounded-lg overflow-hidden bg-slate-950 min-h-[220px]">
     <div class="bg-slate-900/60 px-3 py-1.5 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
       <span class="font-mono text-pink-400">// globals: describe, it, test, expect, res, req, faker</span>
-      <span class="text-slate-500 font-mono text-[10px]">Jasmine / Chai assertion suite</span>
+      <span class="text-slate-500 font-mono text-[10px]">Async/Await Default • Jasmine/Chai Suite</span>
     </div>
     <textarea
       value={req.tests || ''}

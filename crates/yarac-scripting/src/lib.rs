@@ -20,6 +20,8 @@ struct PreRequestState {
     env_vars: HashMap<String, String>,
     secrets: HashMap<String, String>,
     logs: Vec<String>,
+    #[serde(default)]
+    execution_error: Option<String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -28,6 +30,8 @@ struct PostResponseState {
     env_vars: HashMap<String, String>,
     logs: Vec<String>,
     secrets: HashMap<String, String>,
+    #[serde(default)]
+    execution_error: Option<String>,
 }
 
 pub struct ScriptRunner {
@@ -98,7 +102,8 @@ impl ScriptRunner {
                     params: {},
                     env_vars: {{}},
                     secrets: {},
-                    logs: []
+                    logs: [],
+                    execution_error: null
                 }};
                 globalThis.__request_body = {};
 
@@ -132,8 +137,8 @@ impl ScriptRunner {
                     request: {{
                         method: "{}",
                         url: "{}",
-                        headers: {},
-                        params: {},
+                        headers: __yarac_internal.headers,
+                        params: __yarac_internal.params,
                         getBody() {{
                             return __request_body;
                         }}
@@ -150,8 +155,6 @@ impl ScriptRunner {
                 serde_json::to_string(&body_str).unwrap_or_else(|_| "\"\"".into()),
                 req_method,
                 req_url,
-                serde_json::to_string(&initial_headers).unwrap_or_else(|_| "{}".into()),
-                serde_json::to_string(&initial_params).unwrap_or_else(|_| "{}".into()),
             );
 
             runtime
@@ -161,7 +164,16 @@ impl ScriptRunner {
             let wrapped_script = format!(
                 r#"
                 (async () => {{
-                    {}
+                    try {{
+                        await (async () => {{
+                            {}
+                        }})();
+                        if (typeof globalThis.__yarac_drain_tests === 'function') {{
+                            await globalThis.__yarac_drain_tests();
+                        }}
+                    }} catch (err) {{
+                        __yarac_internal.execution_error = (err && (err.stack || err.message)) ? String(err.stack || err.message) : String(err);
+                    }}
                 }})()
                 "#,
                 script
@@ -172,7 +184,9 @@ impl ScriptRunner {
                 return Err(ScriptError::EvalError(e.to_string()));
             }
 
-            let _ = runtime.run_event_loop(Default::default());
+            tokio::runtime::Handle::current()
+                .block_on(runtime.run_event_loop(Default::default()))
+                .map_err(|e| ScriptError::EvalError(e.to_string()))?;
 
             let extract_js = "JSON.stringify(__yarac_internal);";
             let val = runtime
@@ -185,6 +199,10 @@ impl ScriptRunner {
 
             let state: PreRequestState = serde_json::from_str(&json_str)
                 .map_err(|e| ScriptError::EvalError(format!("State extract failed: {e}")))?;
+
+            if let Some(err) = state.execution_error {
+                return Err(ScriptError::EvalError(err));
+            }
 
             Ok(state)
         });
@@ -237,7 +255,8 @@ impl ScriptRunner {
                     assertions: [],
                     env_vars: {{}},
                     logs: [],
-                    secrets: {}
+                    secrets: {},
+                    execution_error: null
                 }};
 
                 globalThis.console = globalThis.console || {{}};
@@ -307,7 +326,16 @@ impl ScriptRunner {
             let wrapped_script = format!(
                 r#"
                 (async () => {{
-                    {}
+                    try {{
+                        await (async () => {{
+                            {}
+                        }})();
+                        if (typeof globalThis.__yarac_drain_tests === 'function') {{
+                            await globalThis.__yarac_drain_tests();
+                        }}
+                    }} catch (err) {{
+                        __yarac_internal.execution_error = (err && (err.stack || err.message)) ? String(err.stack || err.message) : String(err);
+                    }}
                 }})()
                 "#,
                 script
@@ -318,7 +346,9 @@ impl ScriptRunner {
                 return Err(ScriptError::EvalError(e.to_string()));
             }
 
-            let _ = runtime.run_event_loop(Default::default());
+            tokio::runtime::Handle::current()
+                .block_on(runtime.run_event_loop(Default::default()))
+                .map_err(|e| ScriptError::EvalError(e.to_string()))?;
 
             let extract_js = "JSON.stringify(__yarac_internal);";
             let val = runtime
@@ -331,6 +361,10 @@ impl ScriptRunner {
 
             let state: PostResponseState = serde_json::from_str(&json_str)
                 .map_err(|e| ScriptError::EvalError(format!("State extract failed: {e}")))?;
+
+            if let Some(err) = state.execution_error {
+                return Err(ScriptError::EvalError(err));
+            }
 
             Ok(state)
         });
@@ -371,7 +405,7 @@ impl ScriptRunner {
                 }
                 let escaped_title = trimmed.replace('\"', "\\\"");
                 buf.push_str(&format!(
-                    "test(\"{}\", () => {{ const res_val = ({}); if (res_val === false) throw new Error(\"Assertion evaluated to false\"); }});\n",
+                    "test(\"{}\", async () => {{ const res_val = await ({}); if (res_val === false) throw new Error(\"Assertion evaluated to false\"); }});\n",
                     escaped_title, trimmed
                 ));
             }
@@ -444,17 +478,49 @@ impl ScriptRunner {
                         return null;
                     }}
                 }};
-                Boolean({expr})
+                globalThis.__yarac_predicate_result = false;
+                globalThis.__yarac_predicate_error = null;
+                (async () => {{
+                    try {{
+                        globalThis.__yarac_predicate_result = Boolean(await ({expr}));
+                    }} catch (e) {{
+                        globalThis.__yarac_predicate_error = (e && (e.message || e.stack)) ? String(e.message || e.stack) : String(e);
+                    }}
+                }})();
                 "#
             );
 
-            let val = runtime
+            runtime
                 .execute_script("<predicate>", setup_js)
+                .map_err(|e| ScriptError::EvalError(e.to_string()))?;
+
+            tokio::runtime::Handle::current()
+                .block_on(runtime.run_event_loop(Default::default()))
+                .map_err(|e| ScriptError::EvalError(e.to_string()))?;
+
+            let extract_js = "JSON.stringify({ result: globalThis.__yarac_predicate_result, error: globalThis.__yarac_predicate_error });";
+            let val = runtime
+                .execute_script("<extract>", extract_js)
                 .map_err(|e| ScriptError::EvalError(e.to_string()))?;
 
             deno_core::scope!(scope, &mut runtime);
             let local_val = deno_core::v8::Local::new(scope, val);
-            Ok(local_val.boolean_value(scope))
+            let json_str = local_val.to_rust_string_lossy(scope);
+
+            #[derive(Deserialize)]
+            struct PredicateOutcome {
+                result: bool,
+                error: Option<String>,
+            }
+
+            let outcome: PredicateOutcome = serde_json::from_str(&json_str)
+                .map_err(|e| ScriptError::EvalError(format!("Predicate extract failed: {e}")))?;
+
+            if let Some(err) = outcome.error {
+                return Err(ScriptError::EvalError(err));
+            }
+
+            Ok(outcome.result)
         });
 
         tokio::time::timeout(timeout, run_result)
@@ -606,5 +672,174 @@ mod tests {
         assert_eq!(report.assertions.len(), 2);
         assert!(report.assertions[0].passed);
         assert!(report.assertions[1].passed);
+    }
+
+    #[tokio::test]
+    async fn test_async_pre_request_with_await() {
+        let runner = ScriptRunner::default();
+        let mut request = YaracRequest::default();
+        request.body = BodyType::Json(r#"{"count": 5}"#.into());
+
+        let script = r#"
+            const asyncToken = await Promise.resolve("bearer-async-12345");
+            yarac.setHeader("Authorization", asyncToken);
+            yarac.setParam("computed_page", String(await Promise.resolve(2 + 2)));
+            req.headers["X-Direct-Header"] = await Promise.resolve("direct-val");
+            console.log("Async token resolved: " + asyncToken);
+        "#;
+
+        let logs = runner
+            .run_pre_request(script, &mut request, &HashMap::new())
+            .await
+            .unwrap();
+
+        assert_eq!(request.headers.get("Authorization").unwrap(), "bearer-async-12345");
+        assert_eq!(request.headers.get("X-Direct-Header").unwrap(), "direct-val");
+        assert_eq!(request.query_params.get("computed_page").unwrap(), "4");
+        assert_eq!(logs.len(), 1);
+        assert!(logs[0].contains("Async token resolved"));
+    }
+
+    #[tokio::test]
+    async fn test_async_post_response_with_await() {
+        let runner = ScriptRunner::default();
+        let mut report = ExecutionReport {
+            request_name: "AsyncPost".into(),
+            method: "POST".into(),
+            url: "http://localhost/api".into(),
+            status_code: 200,
+            duration_ms: 12,
+            response_headers: indexmap::IndexMap::new(),
+            response_body: "{\"token\": \"jwt-abc\", \"expires_in\": 3600}".into(),
+            assertions: Vec::new(),
+            logs: Vec::new(),
+            error: None,
+        };
+
+        let script = r#"
+            const parsed = await Promise.resolve(res.json());
+            const upperToken = await Promise.resolve(parsed.token.toUpperCase());
+            yarac.setEnvVar("saved_token", upperToken);
+            console.log("Extracted async token: " + upperToken);
+        "#;
+
+        let env_vars = runner
+            .run_post_response(script, &mut report, &HashMap::new())
+            .await
+            .unwrap();
+
+        assert_eq!(env_vars.get("saved_token").unwrap(), "JWT-ABC");
+        assert_eq!(report.logs.len(), 1);
+        assert!(report.logs[0].contains("JWT-ABC"));
+    }
+
+    #[tokio::test]
+    async fn test_async_test_suite_passing_and_failing() {
+        let runner = ScriptRunner::default();
+        let mut report = ExecutionReport {
+            request_name: "AsyncTests".into(),
+            method: "GET".into(),
+            url: "http://localhost/users".into(),
+            status_code: 200,
+            duration_ms: 20,
+            response_headers: indexmap::IndexMap::new(),
+            response_body: "{\"users\": [{\"id\": 1, \"name\": \"Bob\"}]}".into(),
+            assertions: Vec::new(),
+            logs: Vec::new(),
+            error: None,
+        };
+
+        let script = r#"
+            describe("Async User Tests", () => {
+                it("verifies async resolution passes", async () => {
+                    const data = await Promise.resolve(response.json());
+                    expect(data.users.length).toBe(1);
+                    expect(data.users[0].name).toBe("Bob");
+                });
+
+                it("verifies async assertion failure is caught", async () => {
+                    const status = await Promise.resolve(response.status);
+                    expect(status).toBe(404); // Should fail!
+                });
+            });
+        "#;
+
+        runner
+            .run_tests(script, &mut report, &HashMap::new())
+            .await
+            .unwrap();
+
+        assert_eq!(report.assertions.len(), 2);
+        assert!(report.assertions[0].passed);
+        assert_eq!(report.assertions[0].name, "Async User Tests > verifies async resolution passes");
+
+        assert!(!report.assertions[1].passed);
+        assert_eq!(report.assertions[1].name, "Async User Tests > verifies async assertion failure is caught");
+        assert!(report.assertions[1].error_message.as_ref().unwrap().contains("Expected 200 to be 404"));
+    }
+
+    #[tokio::test]
+    async fn test_async_assert_line_expressions() {
+        let runner = ScriptRunner::default();
+        let mut report = ExecutionReport {
+            request_name: "AsyncAssert".into(),
+            method: "GET".into(),
+            url: "http://localhost/health".into(),
+            status_code: 200,
+            duration_ms: 5,
+            response_headers: indexmap::IndexMap::new(),
+            response_body: "{\"healthy\": true}".into(),
+            assertions: Vec::new(),
+            logs: Vec::new(),
+            error: None,
+        };
+
+        let assert_script = "await Promise.resolve(response.status === 200)\n(await Promise.resolve(response.json())).healthy === true";
+        runner
+            .run_assert(assert_script, &mut report, &HashMap::new())
+            .await
+            .unwrap();
+
+        assert_eq!(report.assertions.len(), 2);
+        assert!(report.assertions[0].passed);
+        assert!(report.assertions[1].passed);
+    }
+
+    #[tokio::test]
+    async fn test_async_predicate_expression() {
+        let runner = ScriptRunner::default();
+        let headers = indexmap::IndexMap::new();
+
+        let predicate = "await Promise.resolve(response.status == 200 && response.body.ready == true)";
+        let result = runner
+            .evaluate_predicate(predicate, 200, "{\"ready\": true}", &headers)
+            .await
+            .unwrap();
+        assert!(result);
+
+        let result_false = runner
+            .evaluate_predicate(predicate, 200, "{\"ready\": false}", &headers)
+            .await
+            .unwrap();
+        assert!(!result_false);
+    }
+
+    #[tokio::test]
+    async fn test_async_error_propagation() {
+        let runner = ScriptRunner::default();
+        let mut request = YaracRequest::default();
+
+        let failing_script = r#"
+            await Promise.reject(new Error("Database connection failed asynchronously"));
+        "#;
+
+        let result = runner.run_pre_request(failing_script, &mut request, &HashMap::new()).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ScriptError::EvalError(msg) => {
+                assert!(msg.contains("Database connection failed asynchronously"));
+            }
+            other => panic!("Expected EvalError, got {:?}", other),
+        }
     }
 }

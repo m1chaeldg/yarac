@@ -247,37 +247,62 @@
         };
     }
 
+    let testQueue = Promise.resolve();
+
     globalThis.expect = function(actual) {
         return createExpectation(actual, false);
     };
 
     globalThis.describe = function(suiteName, fn) {
         const prev = currentSuite;
-        currentSuite = prev ? `${prev} > ${suiteName}` : String(suiteName);
+        const suiteTitle = prev ? `${prev} > ${suiteName}` : String(suiteName);
+        currentSuite = suiteTitle;
         try {
-            fn();
-        } finally {
+            const res = fn();
+            if (res && typeof res.then === 'function') {
+                const p = res.finally(() => {
+                    currentSuite = prev;
+                });
+                testQueue = testQueue.then(() => p);
+                return p;
+            } else {
+                currentSuite = prev;
+                return res;
+            }
+        } catch (err) {
             currentSuite = prev;
+            throw err;
         }
     };
 
     globalThis.it = function(testName, fn) {
         const fullTitle = currentSuite ? `${currentSuite} > ${testName}` : String(testName);
-        try {
-            fn();
-            globalThis.__yarac_internal.assertions.push({
-                name: fullTitle,
-                passed: true,
-                error_message: null
-            });
-        } catch (err) {
-            globalThis.__yarac_internal.assertions.push({
-                name: fullTitle,
-                passed: false,
-                error_message: err?.message || String(err)
-            });
-        }
+        const runTest = async () => {
+            try {
+                const res = fn();
+                if (res && typeof res.then === 'function') {
+                    await res;
+                }
+                globalThis.__yarac_internal.assertions.push({
+                    name: fullTitle,
+                    passed: true,
+                    error_message: null
+                });
+            } catch (err) {
+                globalThis.__yarac_internal.assertions.push({
+                    name: fullTitle,
+                    passed: false,
+                    error_message: (err && (err.message || err.stack)) ? String(err.message || err.stack) : String(err)
+                });
+            }
+        };
+        testQueue = testQueue.then(runTest);
+        return testQueue;
     };
 
     globalThis.test = globalThis.it;
+
+    globalThis.__yarac_drain_tests = async function() {
+        await testQueue;
+    };
 })();
