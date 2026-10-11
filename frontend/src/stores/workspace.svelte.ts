@@ -827,18 +827,27 @@ export class WorkspaceStore {
               col = collections.find(c => c.name === raw.collectionName);
             }
             if (!col && rawFolderPath) {
-              // Automatically register discovered directory if missing from manifest
-              const newColId = 'col_' + generateId();
-              const folderName = rawFolderPath.split('/').pop() || 'Folder';
-              const parentFolderPath = rawFolderPath.includes('/') ? rawFolderPath.substring(0, rawFolderPath.lastIndexOf('/')) : undefined;
-              const parentCol = parentFolderPath ? collections.find(c => c.path === parentFolderPath) : undefined;
-              col = {
-                id: newColId,
-                name: folderName,
-                path: rawFolderPath,
-                parentId: parentCol?.id
-              };
-              collections.push(col);
+              // Automatically register discovered directory and its parents if missing from manifest
+              const parts = rawFolderPath.split('/').filter(Boolean);
+              let accPath = '';
+              let currentParentId: string | undefined = undefined;
+
+              for (const part of parts) {
+                accPath = accPath ? `${accPath}/${part}` : part;
+                let existing = collections.find(c => c.path === accPath);
+                if (!existing) {
+                  const newColId = 'col_' + generateId();
+                  existing = {
+                    id: newColId,
+                    name: part,
+                    path: accPath,
+                    parentId: currentParentId
+                  };
+                  collections.push(existing);
+                }
+                currentParentId = existing.id;
+                col = existing;
+              }
             }
 
             const colId = col?.id || collections[0]?.id || 'col_default';
@@ -1499,8 +1508,26 @@ export class WorkspaceStore {
 
         let col = ws.collections.find(c => c.path === folderPath || c.name === folderPath);
         if (!col && folderPath) {
-          const colId = this.addCollection(folderPath);
-          col = ws.collections.find(c => c.id === colId);
+          const parts = folderPath.split('/').filter(Boolean);
+          let accPath = '';
+          let currentParentId: string | undefined = undefined;
+
+          for (const part of parts) {
+            accPath = accPath ? `${accPath}/${part}` : part;
+            let existing = ws.collections.find(c => c.path === accPath);
+            if (!existing) {
+              const newColId = 'col_' + generateId();
+              existing = {
+                id: newColId,
+                name: part,
+                path: accPath,
+                parentId: currentParentId
+              };
+              ws.collections.push(existing);
+            }
+            currentParentId = existing.id;
+            col = existing;
+          }
         }
         const colId = col?.id || ws.collections[0]?.id || 'col_default';
         const newReq = this.createRequest(colId, reqName, 'GET', folderPath);
