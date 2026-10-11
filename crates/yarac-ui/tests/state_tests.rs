@@ -63,3 +63,21 @@ fn test_environment_state_and_variable_resolution() {
     let interpolated = env.interpolate(raw_url);
     assert_eq!(interpolated, "https://prod.api.com/users");
 }
+
+#[test]
+fn test_ui_interactivity_state_updates() {
+    let mut ws = WorkspaceState::new("Test Workspace");
+    let col_id = ws.add_collection("API Collection");
+    let req1_id = ws.create_request(&col_id, "Req 1", "GET", "https://api.example.com/1");
+    let req2_id = ws.create_request(&col_id, "Req 2", "POST", "https://api.example.com/2");
+
+    // Initially active request is the last created one
+    assert_eq!(ws.active_request_id, Some(req2_id.clone()));
+
+    // Simulate sidebar item click selecting Req 1
+    ws.active_request_id = Some(req1_id.clone());
+    assert_eq!(ws.active_request_id, Some(req1_id));
+    let active_req = ws.get_active_request().expect("Req 1 should be active");
+    assert_eq!(active_req.name, "Req 1");
+    assert_eq!(active_req.method, "GET");
+}

@@ -30,14 +30,26 @@ impl Render for Sidebar {
                 let is_active = Some(req.id.clone()) == active_id;
                 let _method_color = self.theme.method_color(&req.method);
 
+                let req_id_str = req.id.clone();
+                let controller = self.controller.clone();
+
                 let req_item = div()
+                    .id(ElementId::from(SharedString::from(format!("req-item-{}", req.id))))
                     .flex()
                     .items_center()
                     .gap_2()
                     .px_2()
                     .py_1()
+                    .cursor_pointer()
                     .rounded(px(self.theme.radii.btn_sm))
                     .bg(if is_active { rgb(0xe0e0e0) } else { rgb(0xf5f5f7) })
+                    .on_click(move |_event, _window, cx| {
+                        let req_id = req_id_str.clone();
+                        controller.update(cx, |c, cx| {
+                            c.workspace.active_request_id = Some(req_id);
+                            cx.notify();
+                        });
+                    })
                     .child(
                         div()
                             .text_xs()
