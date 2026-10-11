@@ -23,30 +23,30 @@
   }
 </script>
 
-<div class="h-full flex flex-col bg-slate-950 overflow-hidden text-xs">
+<div class="h-full flex flex-col bg-apple-surface-black overflow-hidden text-xs">
   <!-- Search & Actions Bar -->
-  <div class="h-9 border-b border-slate-800 px-3 bg-slate-900/60 flex items-center justify-between gap-3 shrink-0">
+  <div class="h-9 border-b border-apple-hairline-dark/60 px-3 bg-apple-surface-tile-2 flex items-center justify-between gap-3 shrink-0">
     <div class="flex items-center gap-2 flex-1 max-w-sm">
       <input
         type="text"
         bind:value={headersSearch}
         placeholder="Search headers..."
-        class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 text-xs focus:outline-none focus:border-sky-500 font-mono"
+        class="w-full bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-pill px-3 py-1 text-apple-body-on-dark text-xs focus:outline-none focus:border-apple-primary font-mono placeholder:text-apple-ink-muted-48"
       />
     </div>
 
     <div class="flex items-center gap-2">
       {#if copyFeedback}
-        <span class="text-[11px] text-emerald-400 font-mono">✓ {copyFeedback}</span>
+        <span class="text-[11px] text-apple-primary-on-dark font-mono">✓ {copyFeedback}</span>
       {/if}
       <button
         type="button"
         onclick={copyAllHeaders}
-        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
+        class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-on-dark border border-apple-hairline-dark/60 text-xs font-medium transition-colors cursor-pointer"
       >
         Copy All
       </button>
-      <span class="text-slate-500 text-[11px] font-mono">
+      <span class="text-apple-ink-muted-48 text-[11px] font-mono">
         {filteredHeaders.length} {filteredHeaders.length === 1 ? 'header' : 'headers'}
       </span>
     </div>
@@ -55,20 +55,20 @@
   <!-- Headers Table -->
   <div class="flex-1 overflow-auto">
     {#if filteredHeaders.length === 0}
-      <div class="p-8 text-center text-slate-500 italic">No headers found</div>
+      <div class="p-8 text-center text-apple-ink-muted-48 italic">No headers found</div>
     {:else}
       <table class="w-full text-left border-collapse">
-        <thead class="sticky top-0 bg-slate-900 border-b border-slate-800 text-[11px] font-semibold text-slate-400 z-10">
+        <thead class="sticky top-0 bg-apple-surface-tile-2 border-b border-apple-hairline-dark/60 text-[11px] font-semibold text-apple-body-muted z-10">
           <tr>
             <th class="px-4 py-2 w-1/3">Header Name</th>
             <th class="px-4 py-2">Value</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+        <tbody class="divide-y divide-apple-hairline-dark/40 font-mono text-[11px]">
           {#each filteredHeaders as h, i}
-            <tr class="hover:bg-slate-900/40 transition-colors {i % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/20'}">
-              <td class="px-4 py-2 text-sky-400 font-medium select-all">{h.key}</td>
-              <td class="px-4 py-2 text-slate-300 select-all break-all">{h.value}</td>
+            <tr class="hover:bg-apple-surface-tile-1/50 transition-colors {i % 2 === 0 ? 'bg-apple-surface-black' : 'bg-apple-surface-tile-1/30'}">
+              <td class="px-4 py-2 text-apple-primary-on-dark font-medium select-all">{h.key}</td>
+              <td class="px-4 py-2 text-apple-body-on-dark select-all break-all">{h.value}</td>
             </tr>
           {/each}
         </tbody>

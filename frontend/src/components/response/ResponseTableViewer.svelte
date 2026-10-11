@@ -55,30 +55,30 @@
   });
 </script>
 
-<div class="h-full flex flex-col bg-slate-950 overflow-hidden text-xs">
+<div class="h-full flex flex-col bg-apple-surface-black overflow-hidden text-xs">
   <!-- Table Search & Filter Bar -->
-  <div class="h-9 border-b border-slate-800 px-3 bg-slate-900/60 flex items-center justify-between gap-3 shrink-0">
+  <div class="h-9 border-b border-apple-hairline-dark/60 px-3 bg-apple-surface-tile-2 flex items-center justify-between gap-3 shrink-0">
     <div class="flex items-center gap-2 flex-1 max-w-sm">
       <input
         type="text"
         bind:value={tableSearch}
         placeholder="Filter table rows..."
-        class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 text-xs focus:outline-none focus:border-sky-500 font-mono"
+        class="w-full bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-pill px-3 py-1 text-apple-body-on-dark text-xs focus:outline-none focus:border-apple-primary font-mono placeholder:text-apple-ink-muted-48"
       />
     </div>
 
     <div class="flex items-center gap-2">
-      <span class="text-slate-500 text-[11px]">Column:</span>
+      <span class="text-apple-body-muted text-[11px]">Column:</span>
       <select
         bind:value={columnFilter}
-        class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-300 text-xs focus:outline-none focus:border-sky-500"
+        class="bg-apple-surface-tile-3 border border-apple-hairline-dark/80 rounded-apple-sm px-2 py-1 text-apple-body-on-dark text-xs focus:outline-none focus:border-apple-primary"
       >
         <option value="">All Columns ({columns.length})</option>
         {#each columns.filter(c => c !== '#') as col}
           <option value={col}>{col}</option>
         {/each}
       </select>
-      <span class="text-slate-500 text-[11px] font-mono">
+      <span class="text-apple-ink-muted-48 text-[11px] font-mono">
         {filteredRows.length} {filteredRows.length === 1 ? 'row' : 'rows'}
       </span>
     </div>
@@ -87,37 +87,37 @@
   <!-- Table Viewport -->
   <div class="flex-1 overflow-auto">
     {#if filteredRows.length === 0}
-      <div class="p-8 text-center text-slate-500 italic">No matching rows found</div>
+      <div class="p-8 text-center text-apple-ink-muted-48 italic">No matching rows found</div>
     {:else}
       <table class="w-full text-left border-collapse">
-        <thead class="sticky top-0 bg-slate-900 border-b border-slate-800 text-[11px] font-semibold text-slate-400 z-10 shadow-sm">
+        <thead class="sticky top-0 bg-apple-surface-tile-2 border-b border-apple-hairline-dark/60 text-[11px] font-semibold text-apple-body-muted z-10 shadow-none">
           <tr>
             {#each displayColumns as col}
               <th
-                class="px-3 py-2 cursor-pointer hover:bg-slate-800 transition-colors whitespace-nowrap select-none"
+                class="px-3 py-2 cursor-pointer hover:bg-apple-surface-tile-3 transition-colors whitespace-nowrap select-none"
                 onclick={() => toggleSort(col)}
               >
                 <div class="flex items-center gap-1.5">
                   <span class="font-mono">{col}</span>
                   {#if sortColumn === col}
-                    <span class="text-sky-400">{sortDir === 'asc' ? '▲' : '▼'}</span>
+                    <span class="text-apple-primary-on-dark">{sortDir === 'asc' ? '▲' : '▼'}</span>
                   {/if}
                 </div>
               </th>
             {/each}
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+        <tbody class="divide-y divide-apple-hairline-dark/40 font-mono text-[11px]">
           {#each filteredRows as row, i}
-            <tr class="hover:bg-slate-900/40 transition-colors {i % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/20'}">
+            <tr class="hover:bg-apple-surface-tile-1/50 transition-colors {i % 2 === 0 ? 'bg-apple-surface-black' : 'bg-apple-surface-tile-1/30'}">
               {#each displayColumns as col}
-                <td class="px-3 py-1.5 text-slate-300 whitespace-nowrap max-w-xs truncate" title={String(row[col] ?? '')}>
+                <td class="px-3 py-1.5 text-apple-body-on-dark whitespace-nowrap max-w-xs truncate" title={String(row[col] ?? '')}>
                   {#if col === '#'}
-                    <span class="text-slate-500 font-semibold">{row[col]}</span>
+                    <span class="text-apple-body-muted font-semibold">{row[col]}</span>
                   {:else if typeof row[col] === 'boolean'}
                     <span class={row[col] ? 'text-emerald-400 font-semibold' : 'text-rose-400'}>{String(row[col])}</span>
                   {:else if row[col] === null || row[col] === undefined}
-                    <span class="text-slate-600 italic">null</span>
+                    <span class="text-apple-ink-muted-48 italic">null</span>
                   {:else}
                     {row[col]}
                   {/if}

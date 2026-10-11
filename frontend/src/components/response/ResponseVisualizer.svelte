@@ -86,7 +86,7 @@
   });
 </script>
 
-<div class="h-full flex flex-col bg-slate-950 overflow-hidden text-xs">
+<div class="h-full flex flex-col bg-apple-surface-black overflow-hidden text-xs">
   {#if mode === 'html'}
     <div class="h-full w-full bg-white">
       <iframe
@@ -98,20 +98,20 @@
     </div>
   {:else}
     <!-- Chart Controls -->
-    <div class="h-9 border-b border-slate-800 px-4 bg-slate-900/60 flex items-center justify-between shrink-0">
-      <span class="text-slate-400 font-medium">Data Visualization</span>
-      <div class="flex items-center gap-1">
+    <div class="h-9 border-b border-apple-hairline-dark/60 px-4 bg-apple-surface-tile-2 flex items-center justify-between shrink-0">
+      <span class="text-apple-body-muted font-medium font-sans">Data Visualization</span>
+      <div class="flex items-center gap-1.5">
         <button
           type="button"
           onclick={() => chartType = 'pie'}
-          class="px-2 py-0.5 rounded text-xs {chartType === 'pie' ? 'bg-sky-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}"
+          class="px-3 py-0.5 rounded-apple-pill text-xs font-medium transition-colors cursor-pointer {chartType === 'pie' ? 'apple-button-primary text-white font-semibold shadow-none' : 'apple-button-dark-utility bg-apple-surface-tile-3 text-apple-body-muted hover:text-white border border-apple-hairline-dark/60'}"
         >
           Pie Chart
         </button>
         <button
           type="button"
           onclick={() => chartType = 'bar'}
-          class="px-2 py-0.5 rounded text-xs {chartType === 'bar' ? 'bg-sky-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}"
+          class="px-3 py-0.5 rounded-apple-pill text-xs font-medium transition-colors cursor-pointer {chartType === 'bar' ? 'apple-button-primary text-white font-semibold shadow-none' : 'apple-button-dark-utility bg-apple-surface-tile-3 text-apple-body-muted hover:text-white border border-apple-hairline-dark/60'}"
         >
           Bar Chart
         </button>
@@ -120,7 +120,7 @@
 
     <div class="flex-1 overflow-auto p-6 flex flex-col items-center justify-center">
       {#if chartPoints.length === 0}
-        <div class="text-center text-slate-500 italic">
+        <div class="text-center text-apple-ink-muted-48 italic font-sans">
           No numeric data found in response body to visualize.
         </div>
       {:else if chartType === 'pie'}
@@ -136,9 +136,9 @@
           <div class="space-y-1.5 font-mono text-[11px]">
             {#each piePaths as slice}
               <div class="flex items-center gap-2">
-                <span class="w-3 h-3 rounded-sm shrink-0" style="background-color: {slice.color};"></span>
-                <span class="text-slate-300 truncate max-w-xs">{slice.label}:</span>
-                <span class="text-slate-400 font-semibold">{slice.value} ({slice.percentage}%)</span>
+                <span class="w-3 h-3 rounded-apple-xs shrink-0" style="background-color: {slice.color};"></span>
+                <span class="text-apple-body-on-dark truncate max-w-xs">{slice.label}:</span>
+                <span class="text-apple-body-muted font-semibold">{slice.value} ({slice.percentage}%)</span>
               </div>
             {/each}
           </div>
@@ -147,13 +147,13 @@
         <div class="w-full max-w-xl space-y-3 font-mono text-[11px]">
           {#each barData as bar}
             <div class="space-y-1">
-              <div class="flex justify-between text-slate-300">
+              <div class="flex justify-between text-apple-body-on-dark">
                 <span class="truncate max-w-md">{bar.label}</span>
-                <span class="text-slate-400 font-semibold">{bar.value}</span>
+                <span class="text-apple-body-muted font-semibold">{bar.value}</span>
               </div>
-              <div class="h-4 bg-slate-900 rounded overflow-hidden">
+              <div class="h-4 bg-apple-surface-tile-2 rounded-apple-pill overflow-hidden border border-apple-hairline-dark/40">
                 <div
-                  class="h-full rounded transition-all duration-300"
+                  class="h-full rounded-apple-pill transition-all duration-300"
                   style="width: {bar.heightPct}%; background-color: {bar.color};"
                 ></div>
               </div>

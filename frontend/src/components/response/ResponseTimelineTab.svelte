@@ -9,18 +9,18 @@
   let { timeline = [] }: Props = $props();
 </script>
 
-<div class="h-full flex flex-col bg-slate-950 overflow-hidden text-xs">
-  <div class="h-9 border-b border-slate-800 px-4 bg-slate-900/60 flex items-center justify-between shrink-0">
-    <span class="text-slate-400 font-medium">Execution History Timeline</span>
-    <span class="text-slate-500 font-mono text-[11px]">{timeline.length} requests</span>
+<div class="h-full flex flex-col bg-apple-surface-black overflow-hidden text-xs">
+  <div class="h-9 border-b border-apple-hairline-dark/60 px-4 bg-apple-surface-tile-2 flex items-center justify-between shrink-0">
+    <span class="text-apple-body-muted font-medium font-sans">Execution History Timeline</span>
+    <span class="text-apple-ink-muted-48 font-mono text-[11px]">{timeline.length} requests</span>
   </div>
 
   <div class="flex-1 overflow-auto">
     {#if timeline.length === 0}
-      <div class="p-8 text-center text-slate-500 italic">No execution history recorded yet.</div>
+      <div class="p-8 text-center text-apple-ink-muted-48 italic font-sans">No execution history recorded yet.</div>
     {:else}
       <table class="w-full text-left border-collapse font-mono text-[11px]">
-        <thead class="sticky top-0 bg-slate-900 border-b border-slate-800 text-[10px] text-slate-400">
+        <thead class="sticky top-0 bg-apple-surface-tile-2 border-b border-apple-hairline-dark/60 text-[10px] text-apple-body-muted font-sans font-semibold">
           <tr>
             <th class="px-3 py-2">Timestamp</th>
             <th class="px-3 py-2">Method</th>
@@ -29,18 +29,18 @@
             <th class="px-3 py-2 text-right">Size</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-800/60">
+        <tbody class="divide-y divide-apple-hairline-dark/40">
           {#each timeline as entry, i}
-            <tr class="hover:bg-slate-900/40 transition-colors {i % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/20'}">
-              <td class="px-3 py-1.5 text-slate-500">{new Date(entry.timestamp).toLocaleTimeString()}</td>
-              <td class="px-3 py-1.5 font-bold text-sky-400">{entry.method || 'GET'}</td>
+            <tr class="hover:bg-apple-surface-tile-1/50 transition-colors {i % 2 === 0 ? 'bg-apple-surface-black' : 'bg-apple-surface-tile-1/30'}">
+              <td class="px-3 py-1.5 text-apple-ink-muted-48">{new Date(entry.timestamp).toLocaleTimeString()}</td>
+              <td class="px-3 py-1.5 font-bold text-apple-primary-on-dark">{entry.method || 'GET'}</td>
               <td class="px-3 py-1.5">
-                <span class="px-1.5 py-0.5 rounded text-[10px] border {getStatusBadgeColor(entry.status)}">
+                <span class="px-2 py-0.5 rounded-apple-pill text-[10px] border font-mono {getStatusBadgeColor(entry.status)}">
                   {entry.status} {entry.statusText}
                 </span>
               </td>
               <td class="px-3 py-1.5 text-right text-emerald-400">{formatDuration(entry.durationMs)}</td>
-              <td class="px-3 py-1.5 text-right text-slate-400">{formatSize(entry.sizeBytes)}</td>
+              <td class="px-3 py-1.5 text-right text-apple-body-muted">{formatSize(entry.sizeBytes)}</td>
             </tr>
           {/each}
         </tbody>

@@ -3,12 +3,37 @@
   "name": "Core Services API",
   "collections": [
     {
+      "id": "col_1b8uab04",
+      "name": "sub2",
+      "path": "Users & Accounts/sub2",
+      "parent_id": "col_users"
+    },
+    {
+      "id": "col_u550z8gs",
+      "name": "sub",
+      "path": "Users & Accounts/sub",
+      "parent_id": "col_users"
+    },
+    {
       "id": "col_users",
-      "name": "Users & Accounts"
+      "name": "Users & Accounts",
+      "path": "Users & Accounts"
+    },
+    {
+      "id": "col_cp0qrldb",
+      "name": "fff",
+      "path": "fff"
     },
     {
       "id": "col_billing",
-      "name": "Billing & Subscriptions"
+      "name": "Billing & Subscriptions",
+      "path": "Billing & Subscriptions"
+    },
+    {
+      "id": "col_x1p3ghli",
+      "name": "sub3",
+      "path": "Users & Accounts/sub3",
+      "parent_id": "col_users"
     }
   ],
   "active_environment_id": "env_prod",

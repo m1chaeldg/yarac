@@ -12,11 +12,15 @@ fn test_workspace_manifest_serialization() {
             CollectionMeta {
                 id: "col_1".into(),
                 name: "Auth API".into(),
+                path: None,
+                parent_id: None,
                 request_files: vec!["login.yarac".into(), "refresh.yarac".into()],
             },
             CollectionMeta {
                 id: "col_2".into(),
                 name: "Users API".into(),
+                path: None,
+                parent_id: None,
                 request_files: vec!["list_users.yarac".into()],
             },
         ],

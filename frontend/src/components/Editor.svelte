@@ -49,15 +49,15 @@
           above: true,
           create() {
             const dom = document.createElement('div');
-            dom.className = 'cm-yarac-tooltip bg-slate-900 border border-slate-700 shadow-xl rounded-md p-2.5 text-xs text-slate-200 z-50 max-w-sm';
+            dom.className = 'cm-yarac-tooltip bg-apple-surface-tile-2 border border-apple-hairline-dark/80 rounded-apple-md p-2.5 text-xs text-apple-primary-on-dark shadow-none z-50 max-w-sm';
             dom.innerHTML = `
-              <div class="flex items-center gap-1.5 pb-1 border-b border-slate-800 font-mono font-semibold text-sky-400">
+              <div class="flex items-center gap-1.5 pb-1 border-b border-apple-hairline-dark/60 font-mono font-semibold text-apple-link-on-dark">
                 <span>{{${varName}}}</span>
-                ${resolved.isKeyring ? '<span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-950/80 text-amber-300 border border-amber-700/50">🔒 Keyring</span>' : ''}
+                ${resolved.isKeyring ? '<span class="px-1.5 py-0.5 rounded-apple-sm text-[10px] bg-apple-surface-tile-3 text-apple-link-on-dark border border-apple-hairline-dark/80">🔒 Keyring</span>' : ''}
               </div>
               <div class="pt-1.5 space-y-1">
-                <div class="text-slate-400">Value: <span class="font-mono text-emerald-400">${resolved.value}</span></div>
-                <div class="text-[11px] text-slate-500">Scope: <span class="text-slate-300">${resolved.scope}</span></div>
+                <div class="text-apple-secondary-on-dark">Value: <span class="font-mono text-apple-primary-on-dark">${resolved.value}</span></div>
+                <div class="text-[11px] text-apple-secondary-on-dark">Scope: <span class="text-apple-primary-on-dark">${resolved.scope}</span></div>
               </div>
             `;
             return { dom };
@@ -77,11 +77,11 @@
         keymap.of(defaultKeymap),
         variableHoverTooltip,
         EditorView.theme({
-          '&': { height: '100%', fontSize: '13px', backgroundColor: '#020617', color: '#f8fafc' },
+          '&': { height: '100%', fontSize: '13px', backgroundColor: '#1c1c1e', color: '#f5f5f7' },
           '.cm-content': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
-          '.cm-gutters': { backgroundColor: '#020617', color: '#475569', borderRight: '1px solid #1e293b' },
-          '&.cm-focused .cm-cursor': { borderLeftColor: '#38bdf8' },
-          '&.cm-focused .cm-selectionBackground, ::selection': { backgroundColor: '#1e293b' },
+          '.cm-gutters': { backgroundColor: '#1c1c1e', color: '#86868b', borderRight: '1px solid #3a3a3c' },
+          '&.cm-focused .cm-cursor': { borderLeftColor: '#2997ff' },
+          '&.cm-focused .cm-selectionBackground, ::selection': { backgroundColor: '#3a3a3c' },
         }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged && onchange) {

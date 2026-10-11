@@ -1,0 +1,23 @@
+version = "1.0"
+name = "New Request"
+method = "GET"
+url = "{{base_url}}/api/v1/resource"
+
+[settings]
+inherit_auth = true
+verify_ssl = true
+follow_redirects = true
+max_redirects = 5
+timeout_ms = 0
+
+[headers]
+Accept = "application/json"
+
+[flow]
+once_per_run = false
+retry_until = ""
+retry_interval_ms = 500
+max_retries = 3
+delay_ms = 0
+jitter_min_ms = 0
+jitter_max_ms = 0
