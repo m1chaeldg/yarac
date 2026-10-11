@@ -488,7 +488,7 @@ Connection: close\r\n\r\n{}",
         }
     }
 
-    async fn handle_load_workspace(&self) -> Value {
+    pub async fn handle_load_workspace(&self) -> Value {
         let manifest_path = self.workspace_dir.join("workspace.json");
         let manifest: Option<WorkspaceManifest> = if manifest_path.is_file() {
             std::fs::read_to_string(&manifest_path)
@@ -522,19 +522,30 @@ Connection: close\r\n\r\n{}",
                 self.workspace_dir.join(path)
             }
         } else if let (Some(col), Some(req)) = (payload.collection_name.as_deref(), payload.request_name.as_deref()) {
-            let safe_col = col.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let mut col_path = self.workspace_dir.clone();
+            for part in col.split(['/', '\\']) {
+                let safe_part = part.replace([':', '*', '?', '"', '<', '>', '|'], "_");
+                if !safe_part.is_empty() {
+                    col_path.push(safe_part);
+                }
+            }
             let safe_req = req.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-            let file_path = self.workspace_dir.join(&safe_col).join(format!("{}.yarac", safe_req));
+            let file_path = col_path.join(format!("{}.yarac", safe_req));
             if file_path.exists() {
                 file_path
             } else {
-                self.workspace_dir.join(&safe_col)
+                col_path
             }
         } else if let Some(col) = payload.collection_name.as_deref() {
-            let safe_col = col.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-            let col_dir = self.workspace_dir.join(&safe_col);
-            let _ = std::fs::create_dir_all(&col_dir);
-            col_dir
+            let mut col_path = self.workspace_dir.clone();
+            for part in col.split(['/', '\\']) {
+                let safe_part = part.replace([':', '*', '?', '"', '<', '>', '|'], "_");
+                if !safe_part.is_empty() {
+                    col_path.push(safe_part);
+                }
+            }
+            let _ = std::fs::create_dir_all(&col_path);
+            col_path
         } else {
             self.workspace_dir.clone()
         };
@@ -587,7 +598,7 @@ Connection: close\r\n\r\n{}",
         json!({ "status": "ok", "path": canonical_target.to_string_lossy() })
     }
 
-    async fn handle_save_workspace(&self, body: &str) -> Value {
+    pub async fn handle_save_workspace(&self, body: &str) -> Value {
         let payload: WorkspaceSavePayload = match serde_json::from_str(body) {
             Ok(p) => p,
             Err(e) => return json!({ "error": format!("Invalid workspace payload: {}", e) }),
@@ -608,26 +619,58 @@ Connection: close\r\n\r\n{}",
         let mut active_files = HashSet::new();
         let mut active_cols = HashSet::new();
 
-        // Helper to get safe relative directory path for a collection or folder
-        let get_col_dir = |col: &CollectionMeta| -> PathBuf {
-            if let Some(p) = &col.path {
-                let clean_p = p.trim_matches(['/', '\\']);
-                if !clean_p.is_empty() {
-                    let mut res = self.workspace_dir.clone();
-                    for part in clean_p.split(['/', '\\']) {
-                        let safe_part = part.replace([':', '*', '?', '"', '<', '>', '|'], "_");
-                        res.push(safe_part);
-                    }
-                    return res;
+        // Helper to resolve full tree lineage directory path for a collection or folder
+        let get_col_dir = |col_id: &str| -> PathBuf {
+            // Build chain of ancestors up to root
+            let mut chain: Vec<&CollectionMeta> = Vec::new();
+            let mut visited = HashSet::new();
+            let mut current_id = Some(col_id.to_string());
+
+            while let Some(id) = current_id {
+                if !visited.insert(id.clone()) {
+                    break; // prevent cycles
+                }
+                if let Some(col) = payload.manifest.collections.iter().find(|c| c.id == id) {
+                    chain.push(col);
+                    current_id = col.parent_id.clone();
+                } else {
+                    break;
                 }
             }
-            let safe_name = col.name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-            self.workspace_dir.join(safe_name)
+
+            chain.reverse();
+
+            if chain.is_empty() {
+                return self.workspace_dir.join("General");
+            }
+
+            let mut res = self.workspace_dir.clone();
+            for col in chain {
+                // If path is specified and not empty, use leaf or relative path component
+                let seg = if let Some(p) = &col.path {
+                    let clean = p.trim_matches(['/', '\\']);
+                    if let Some(last) = clean.split(['/', '\\']).last() {
+                        if !last.is_empty() {
+                            last.to_string()
+                        } else {
+                            col.name.clone()
+                        }
+                    } else {
+                        col.name.clone()
+                    }
+                } else {
+                    col.name.clone()
+                };
+
+                let safe_seg = seg.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+                res.push(safe_seg);
+            }
+            res
         };
 
-        // Ensure collection and folder directories exist
+        // Ensure all collection and folder directories exist along tree paths
         for col in &payload.manifest.collections {
-            let col_dir = get_col_dir(col);
+            let col_dir = get_col_dir(&col.id);
             let _ = std::fs::create_dir_all(&col_dir);
             // Mark entire chain of ancestor dirs inside workspace as active
             let mut curr = col_dir.clone();
@@ -641,14 +684,11 @@ Connection: close\r\n\r\n{}",
             }
         }
 
+        // Track used file paths in each target directory to prevent naming collisions
+        let mut dir_file_counts: HashMap<PathBuf, HashSet<String>> = HashMap::new();
+
         // Save each request to disk in its respective collection/folder path
         for item in &payload.requests {
-            let col_opt = payload
-                .manifest
-                .collections
-                .iter()
-                .find(|c| c.id == item.collection_id);
-
             let target_dir = if let Some(folder_p) = &item.folder_path {
                 let clean_p = folder_p.trim_matches(['/', '\\']);
                 if !clean_p.is_empty() {
@@ -658,15 +698,11 @@ Connection: close\r\n\r\n{}",
                         res.push(safe_part);
                     }
                     res
-                } else if let Some(c) = col_opt {
-                    get_col_dir(c)
                 } else {
-                    self.workspace_dir.join("General")
+                    get_col_dir(&item.collection_id)
                 }
-            } else if let Some(c) = col_opt {
-                get_col_dir(c)
             } else {
-                self.workspace_dir.join("General")
+                get_col_dir(&item.collection_id)
             };
 
             let _ = std::fs::create_dir_all(&target_dir);
@@ -680,8 +716,24 @@ Connection: close\r\n\r\n{}",
                 }
             }
 
-            let safe_name = item.name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-            let req_path = target_dir.join(format!("{}.yarac", safe_name));
+            let safe_base_name = item.name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let safe_base_name = if safe_base_name.trim().is_empty() {
+                "Request".to_string()
+            } else {
+                safe_base_name
+            };
+
+            // Avoid collisions if two requests in the same directory have the same name
+            let used_names = dir_file_counts.entry(target_dir.clone()).or_default();
+            let mut filename = format!("{}.yarac", safe_base_name);
+            let mut counter = 2;
+            while used_names.contains(&filename.to_lowercase()) {
+                filename = format!("{} ({}).yarac", safe_base_name, counter);
+                counter += 1;
+            }
+            used_names.insert(filename.to_lowercase());
+
+            let req_path = target_dir.join(&filename);
             active_files.insert(req_path.clone());
             if let Some(w) = &self.watcher {
                 w.mark_self_write(&req_path, Duration::from_millis(1500));
@@ -856,3 +908,104 @@ Connection: close\r\n\r\n{}",
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_tree_hierarchy_saving_and_name_disambiguation() {
+        let temp_dir = std::env::temp_dir().join(format!("yarac_tree_test_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let server = YaracLocalServer::new(temp_dir.clone());
+
+        let payload = json!({
+            "manifest": {
+                "id": "ws_test",
+                "name": "Test Hierarchy Workspace",
+                "collections": [
+                    {
+                        "id": "col_root",
+                        "name": "Auth",
+                        "path": "Auth",
+                        "parent_id": null
+                    },
+                    {
+                        "id": "col_v1",
+                        "name": "v1",
+                        "path": "Auth/v1",
+                        "parent_id": "col_root"
+                    },
+                    {
+                        "id": "col_sub",
+                        "name": "oauth",
+                        "path": "Auth/v1/oauth",
+                        "parent_id": "col_v1"
+                    },
+                    {
+                        "id": "col_billing_root",
+                        "name": "Billing",
+                        "path": "Billing",
+                        "parent_id": null
+                    },
+                    {
+                        "id": "col_billing_v1",
+                        "name": "v1",
+                        "path": "Billing/v1",
+                        "parent_id": "col_billing_root"
+                    }
+                ]
+            },
+            "requests": [
+                {
+                    "id": "req_1",
+                    "collectionId": "col_sub",
+                    "folderPath": "Auth/v1/oauth",
+                    "name": "Login",
+                    "dslContent": "version = \"1.0\"\nname = \"Login\"\nmethod = \"POST\"\nurl = \"http://localhost/login\"\n"
+                },
+                {
+                    "id": "req_2",
+                    "collectionId": "col_sub",
+                    "folderPath": "Auth/v1/oauth",
+                    "name": "Login",
+                    "dslContent": "version = \"1.0\"\nname = \"Login\"\nmethod = \"POST\"\nurl = \"http://localhost/login2\"\n"
+                },
+                {
+                    "id": "req_3",
+                    "collectionId": "col_billing_v1",
+                    "folderPath": "Billing/v1",
+                    "name": "Login",
+                    "dslContent": "version = \"1.0\"\nname = \"Login\"\nmethod = \"GET\"\nurl = \"http://localhost/billing/login\"\n"
+                }
+            ]
+        });
+
+        let save_res = server.handle_save_workspace(&payload.to_string()).await;
+        assert_eq!(save_res.get("status").and_then(|s| s.as_str()), Some("ok"));
+
+        // Verify folder tree exists on disk
+        let oauth_dir = temp_dir.join("Auth").join("v1").join("oauth");
+        assert!(oauth_dir.is_dir(), "Auth/v1/oauth should exist as a directory");
+
+        let billing_v1_dir = temp_dir.join("Billing").join("v1");
+        assert!(billing_v1_dir.is_dir(), "Billing/v1 should exist as a directory");
+
+        // Verify collision handling in Auth/v1/oauth
+        let req1_file = oauth_dir.join("Login.yarac");
+        let req2_file = oauth_dir.join("Login (2).yarac");
+        assert!(req1_file.is_file(), "Login.yarac should exist");
+        assert!(req2_file.is_file(), "Login (2).yarac should exist to avoid overwrite");
+
+        // Verify separate tree path for Billing/v1/Login.yarac
+        let billing_login = billing_v1_dir.join("Login.yarac");
+        assert!(billing_login.is_file(), "Billing/v1/Login.yarac should exist in its own distinct directory");
+
+        // Test loading workspace back from disk
+        let load_res = server.handle_load_workspace().await;
+        let requests_val = load_res.get("requests").and_then(|r| r.as_array()).expect("Requests array");
+        assert_eq!(requests_val.len(), 3);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+}
+

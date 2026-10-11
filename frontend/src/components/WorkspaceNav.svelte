@@ -363,7 +363,7 @@
         label: 'Reveal in Explorer',
         icon: '📂',
         action: async () => {
-          await backendApi.revealInExplorer({ collectionName: col.name });
+          await backendApi.revealInExplorer({ collectionName: col.path || col.name });
           showToast(`Revealed "${col.name}" in Explorer`, '📂');
         }
       },
@@ -458,7 +458,10 @@
         label: 'Reveal in Explorer',
         icon: '📂',
         action: async () => {
-          await backendApi.revealInExplorer({ collectionName: col.name, requestName: req.name });
+          await backendApi.revealInExplorer({
+            collectionName: req.folderPath || col.path || col.name,
+            requestName: req.name
+          });
           showToast(`Revealed "${req.name}" in Explorer`, '📂');
         }
       },
