@@ -319,7 +319,7 @@
         onBodyChange={handleBodyChange}
       />
     {:else if activeView === 'table'}
-      <ResponseTableViewer columns={tableData.columns} rows={tableData.rows} />
+      <ResponseTableViewer {parsedJson} columns={tableData.columns} rows={tableData.rows} />
     {:else if activeView === 'visualizer'}
       <ResponseVisualizer parsedJson={parsedJson} mode="charts" />
     {:else if activeView === 'html'}
