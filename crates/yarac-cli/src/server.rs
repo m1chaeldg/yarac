@@ -69,6 +69,8 @@ pub struct WorkspaceRequestItem {
     pub id: String,
     #[serde(rename = "collectionId", default)]
     pub collection_id: String,
+    #[serde(rename = "folderPath", default)]
+    pub folder_path: Option<String>,
     pub name: String,
     #[serde(rename = "dslContent", default)]
     pub dsl_content: String,
@@ -606,32 +608,80 @@ Connection: close\r\n\r\n{}",
         let mut active_files = HashSet::new();
         let mut active_cols = HashSet::new();
 
-        // Ensure collection directories exist
+        // Helper to get safe relative directory path for a collection or folder
+        let get_col_dir = |col: &CollectionMeta| -> PathBuf {
+            if let Some(p) = &col.path {
+                let clean_p = p.trim_matches(['/', '\\']);
+                if !clean_p.is_empty() {
+                    let mut res = self.workspace_dir.clone();
+                    for part in clean_p.split(['/', '\\']) {
+                        let safe_part = part.replace([':', '*', '?', '"', '<', '>', '|'], "_");
+                        res.push(safe_part);
+                    }
+                    return res;
+                }
+            }
+            let safe_name = col.name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            self.workspace_dir.join(safe_name)
+        };
+
+        // Ensure collection and folder directories exist
         for col in &payload.manifest.collections {
-            let safe_col = col.name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-            let col_dir = self.workspace_dir.join(&safe_col);
+            let col_dir = get_col_dir(col);
             let _ = std::fs::create_dir_all(&col_dir);
-            active_cols.insert(col_dir);
+            // Mark entire chain of ancestor dirs inside workspace as active
+            let mut curr = col_dir.clone();
+            while curr != self.workspace_dir && curr.starts_with(&self.workspace_dir) {
+                active_cols.insert(curr.clone());
+                if let Some(parent) = curr.parent() {
+                    curr = parent.to_path_buf();
+                } else {
+                    break;
+                }
+            }
         }
 
-        // Save each request to disk in collection folders
+        // Save each request to disk in its respective collection/folder path
         for item in &payload.requests {
-            let col_name = payload
+            let col_opt = payload
                 .manifest
                 .collections
                 .iter()
-                .find(|c| c.id == item.collection_id)
-                .map(|c| c.name.clone())
-                .unwrap_or_else(|| "General".into());
+                .find(|c| c.id == item.collection_id);
 
-            let safe_col = col_name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let target_dir = if let Some(folder_p) = &item.folder_path {
+                let clean_p = folder_p.trim_matches(['/', '\\']);
+                if !clean_p.is_empty() {
+                    let mut res = self.workspace_dir.clone();
+                    for part in clean_p.split(['/', '\\']) {
+                        let safe_part = part.replace([':', '*', '?', '"', '<', '>', '|'], "_");
+                        res.push(safe_part);
+                    }
+                    res
+                } else if let Some(c) = col_opt {
+                    get_col_dir(c)
+                } else {
+                    self.workspace_dir.join("General")
+                }
+            } else if let Some(c) = col_opt {
+                get_col_dir(c)
+            } else {
+                self.workspace_dir.join("General")
+            };
+
+            let _ = std::fs::create_dir_all(&target_dir);
+            let mut curr = target_dir.clone();
+            while curr != self.workspace_dir && curr.starts_with(&self.workspace_dir) {
+                active_cols.insert(curr.clone());
+                if let Some(parent) = curr.parent() {
+                    curr = parent.to_path_buf();
+                } else {
+                    break;
+                }
+            }
+
             let safe_name = item.name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-
-            let col_dir = self.workspace_dir.join(&safe_col);
-            let _ = std::fs::create_dir_all(&col_dir);
-            active_cols.insert(col_dir.clone());
-
-            let req_path = col_dir.join(format!("{}.yarac", safe_name));
+            let req_path = target_dir.join(format!("{}.yarac", safe_name));
             active_files.insert(req_path.clone());
             if let Some(w) = &self.watcher {
                 w.mark_self_write(&req_path, Duration::from_millis(1500));
@@ -684,28 +734,44 @@ Connection: close\r\n\r\n{}",
     }
 
     fn scan_yarac_files(dir: &Path, out: &mut Vec<Value>) {
-        if let Ok(entries) = std::fs::read_dir(dir) {
+        Self::scan_yarac_files_recursive(dir, dir, out);
+    }
+
+    fn scan_yarac_files_recursive(base_dir: &Path, current_dir: &Path, out: &mut Vec<Value>) {
+        if let Ok(entries) = std::fs::read_dir(current_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_dir() {
-                    Self::scan_yarac_files(&path, out);
+                    Self::scan_yarac_files_recursive(base_dir, &path, out);
                 } else if path.extension().and_then(|s| s.to_str()) == Some("yarac") {
                     let fname = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
                     if fname.starts_with('.') || fname.ends_with(".env.yarac") {
                         continue;
                     }
                     if let Ok(content) = std::fs::read_to_string(&path) {
-                        let col_name = path
-                            .parent()
-                            .and_then(|p| p.file_name())
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("General");
+                        // Calculate relative folder path from base workspace directory
+                        let rel_folder = if let Ok(rel) = path.strip_prefix(base_dir) {
+                            rel.parent()
+                                .map(|p| p.to_string_lossy().replace('\\', "/"))
+                                .unwrap_or_default()
+                        } else {
+                            String::new()
+                        };
+
+                        let col_name = if !rel_folder.is_empty() {
+                            rel_folder.split('/').last().unwrap_or("General").to_string()
+                        } else {
+                            "General".to_string()
+                        };
+
                         let req_name = path
                             .file_stem()
                             .and_then(|s| s.to_str())
                             .unwrap_or("Request");
+
                         out.push(json!({
                             "collectionName": col_name,
+                            "folderPath": rel_folder,
                             "fileName": format!("{}.yarac", req_name),
                             "name": req_name,
                             "path": path.to_string_lossy(),

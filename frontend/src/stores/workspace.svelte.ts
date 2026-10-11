@@ -53,6 +53,7 @@ export interface ScriptHooks {
 export interface YaracRequest {
   id: string;
   collectionId: string;
+  folderPath?: string;
   name: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
   url: string;
@@ -90,6 +91,8 @@ export interface EnvironmentProfile {
 export interface Collection {
   id: string;
   name: string;
+  path?: string;
+  parentId?: string;
 }
 
 export interface Workspace {
@@ -807,16 +810,45 @@ export class WorkspaceStore {
         const manifest = data.manifest;
         const loadedRequests: YaracRequest[] = [];
 
+        // Reconcile collections from manifest
+        const collections: Collection[] = (manifest.collections || []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          path: c.path || c.name,
+          parentId: c.parent_id || c.parentId
+        }));
+
         if (Array.isArray(data.requests)) {
           for (const raw of data.requests) {
-            const col = manifest.collections?.find((c: any) => c.name === raw.collectionName);
-            const colId = col?.id || manifest.collections?.[0]?.id || 'col_default';
+            const rawFolderPath = (raw.folderPath || raw.collectionName || '').replace(/\\/g, '/');
+            // Try matching by exact folderPath first, then collectionName
+            let col = collections.find(c => c.path === rawFolderPath);
+            if (!col && raw.collectionName) {
+              col = collections.find(c => c.name === raw.collectionName);
+            }
+            if (!col && rawFolderPath) {
+              // Automatically register discovered directory if missing from manifest
+              const newColId = 'col_' + generateId();
+              const folderName = rawFolderPath.split('/').pop() || 'Folder';
+              const parentFolderPath = rawFolderPath.includes('/') ? rawFolderPath.substring(0, rawFolderPath.lastIndexOf('/')) : undefined;
+              const parentCol = parentFolderPath ? collections.find(c => c.path === parentFolderPath) : undefined;
+              col = {
+                id: newColId,
+                name: folderName,
+                path: rawFolderPath,
+                parentId: parentCol?.id
+              };
+              collections.push(col);
+            }
+
+            const colId = col?.id || collections[0]?.id || 'col_default';
             const slug = (raw.name || 'request').toLowerCase().replace(/[^a-z0-9]/g, '_');
             const reqId = raw.id || `req_${slug}`;
 
             const dummyReq: YaracRequest = {
               id: reqId,
               collectionId: colId,
+              folderPath: rawFolderPath || col?.path,
               name: raw.name || 'Request',
               method: 'GET',
               url: 'http://localhost',
@@ -868,7 +900,7 @@ export class WorkspaceStore {
         const ws: Workspace = {
           id: manifest.id || 'ws_local',
           name: manifest.name || 'Local Workspace',
-          collections: manifest.collections || [{ id: 'col_default', name: 'General' }],
+          collections: collections.length > 0 ? collections : [{ id: 'col_default', name: 'General', path: 'General' }],
           requests: loadedRequests.length > 0 ? loadedRequests : defaultInitialWorkspaces[0].requests,
           environments: defaultInitialWorkspaces[0].environments,
           activeEnvironmentId: manifest.active_environment_id || defaultInitialWorkspaces[0].activeEnvironmentId,
@@ -892,7 +924,12 @@ export class WorkspaceStore {
     const manifest = {
       id: ws.id,
       name: ws.name,
-      collections: ws.collections,
+      collections: ws.collections.map(c => ({
+        id: c.id,
+        name: c.name,
+        path: c.path || c.name,
+        parent_id: c.parentId
+      })),
       active_environment_id: ws.activeEnvironmentId,
       open_tabs: ws.openTabIds,
       active_tab: ws.activeTabId
@@ -934,7 +971,7 @@ export class WorkspaceStore {
     const newWs: Workspace = {
       id: 'ws_' + generateId(),
       name: name.trim() || 'New Workspace',
-      collections: [{ id: 'col_' + generateId(), name: 'Default Collection' }],
+      collections: [{ id: 'col_' + generateId(), name: 'Default Collection', path: 'Default Collection' }],
       requests: [],
       environments: [
         {
@@ -953,15 +990,32 @@ export class WorkspaceStore {
     return newWs;
   }
 
-  // Collection actions
-  addCollection(name: string): string {
+  // Collection and Folder actions
+  addCollection(name: string, parentId?: string): string {
     const colId = 'col_' + generateId();
-    this.currentWorkspace.collections.push({
+    const ws = this.currentWorkspace;
+    const trimmed = name.trim() || 'New Collection';
+
+    let path = trimmed;
+    if (parentId) {
+      const parent = ws.collections.find(c => c.id === parentId);
+      if (parent) {
+        path = `${parent.path || parent.name}/${trimmed}`;
+      }
+    }
+
+    ws.collections.push({
       id: colId,
-      name: name.trim() || 'New Collection'
+      name: trimmed,
+      path,
+      parentId
     });
     this.persistToDisk();
     return colId;
+  }
+
+  addFolder(parentId: string, name: string): string {
+    return this.addCollection(name, parentId);
   }
 
   renameCollection(collectionId: string, newName: string): boolean {
@@ -970,7 +1024,32 @@ export class WorkspaceStore {
     if (!col) return false;
     const trimmed = newName.trim();
     if (!trimmed) return false;
+
+    const oldPath = col.path || col.name;
     col.name = trimmed;
+
+    // Recalculate path
+    if (col.parentId) {
+      const parent = ws.collections.find(c => c.id === col.parentId);
+      col.path = parent ? `${parent.path || parent.name}/${trimmed}` : trimmed;
+    } else {
+      col.path = trimmed;
+    }
+
+    const newPath = col.path;
+
+    // Cascade path update to subfolders and requests
+    for (const sub of ws.collections) {
+      if (sub.path && sub.path.startsWith(oldPath + '/')) {
+        sub.path = newPath + sub.path.substring(oldPath.length);
+      }
+    }
+    for (const req of ws.requests) {
+      if (req.folderPath && req.folderPath.startsWith(oldPath)) {
+        req.folderPath = newPath + req.folderPath.substring(oldPath.length);
+      }
+    }
+
     this.persistToDisk();
     return true;
   }
@@ -980,24 +1059,39 @@ export class WorkspaceStore {
     const colIdx = ws.collections.findIndex(c => c.id === collectionId);
     if (colIdx === -1) return false;
 
-    // Remove requests belonging to this collection
-    const reqsToRemove = ws.requests.filter(r => r.collectionId === collectionId);
+    const col = ws.collections[colIdx];
+    const targetPath = col.path || col.name;
+
+    // Find all descendant subcollections
+    const toRemoveIds = new Set<string>([collectionId]);
+    for (const c of ws.collections) {
+      if (c.path && c.path.startsWith(targetPath + '/')) {
+        toRemoveIds.add(c.id);
+      }
+    }
+
+    // Remove requests belonging to this collection or its subfolders
+    const reqsToRemove = ws.requests.filter(r => toRemoveIds.has(r.collectionId) || (r.folderPath && r.folderPath.startsWith(targetPath)));
     for (const req of reqsToRemove) {
       this.closeTab(req.id);
     }
-    ws.requests = ws.requests.filter(r => r.collectionId !== collectionId);
-    ws.collections.splice(colIdx, 1);
+    ws.requests = ws.requests.filter(r => !reqsToRemove.includes(r));
+    ws.collections = ws.collections.filter(c => !toRemoveIds.has(c.id));
 
     this.persistToDisk();
     return true;
   }
 
   // Request actions
-  createRequest(collectionId: string, name = 'New Request', method: YaracRequest['method'] = 'GET'): YaracRequest {
+  createRequest(collectionId: string, name = 'New Request', method: YaracRequest['method'] = 'GET', folderPath?: string): YaracRequest {
+    const ws = this.currentWorkspace;
+    const col = ws.collections.find(c => c.id === collectionId);
+    const resolvedPath = folderPath || col?.path;
     const reqId = 'req_' + generateId();
     const newReq: YaracRequest = {
       id: reqId,
       collectionId,
+      folderPath: resolvedPath,
       name,
       method,
       url: '{{base_url}}/api/v1/resource',
@@ -1226,7 +1320,11 @@ export class WorkspaceStore {
     const req = ws.requests.find(r => r.id === requestId);
     if (!req) return;
 
+    const targetCol = ws.collections.find(c => c.id === targetCollectionId);
     req.collectionId = targetCollectionId;
+    if (targetCol) {
+      req.folderPath = targetCol.path || targetCol.name;
+    }
 
     if (typeof targetIndex === 'number') {
       const targetColReqs = ws.requests.filter(r => r.collectionId === targetCollectionId && r.id !== requestId);
@@ -1283,20 +1381,32 @@ export class WorkspaceStore {
           existingReq.isDirty = false;
         }
       } else if (event.kind === 'created') {
-        const parts = event.path.split(/[/\\]/);
-        const colDirName = parts[parts.length - 2] || 'General';
-        let col = ws.collections.find(c => c.name.toLowerCase() === colDirName.toLowerCase());
-        if (!col) {
-          const colId = this.addCollection(colDirName);
+        const normalized = event.path.replace(/\\/g, '/');
+        // Extract relative folder path
+        let folderPath = '';
+        const lastSlash = normalized.lastIndexOf('/');
+        if (lastSlash !== -1) {
+          const parentStr = normalized.substring(0, lastSlash);
+          const wsMarker = parentStr.indexOf('/workspace/');
+          if (wsMarker !== -1) {
+            folderPath = parentStr.substring(wsMarker + '/workspace/'.length);
+          } else {
+            const parts = parentStr.split('/');
+            folderPath = parts[parts.length - 1] || 'General';
+          }
+        }
+
+        let col = ws.collections.find(c => c.path === folderPath || c.name === folderPath);
+        if (!col && folderPath) {
+          const colId = this.addCollection(folderPath);
           col = ws.collections.find(c => c.id === colId);
         }
-        if (col) {
-          const newReq = this.createRequest(col.id, reqName, 'GET');
-          newReq.dslContent = content;
-          const parsed = parseDslToRequest(content, newReq);
-          Object.assign(newReq, parsed);
-          newReq.isDirty = false;
-        }
+        const colId = col?.id || ws.collections[0]?.id || 'col_default';
+        const newReq = this.createRequest(colId, reqName, 'GET', folderPath);
+        newReq.dslContent = content;
+        const parsed = parseDslToRequest(content, newReq);
+        Object.assign(newReq, parsed);
+        newReq.isDirty = false;
       }
     }
   }

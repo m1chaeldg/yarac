@@ -20,6 +20,8 @@
   let newWorkspaceName = $state('');
   let isAddingCollection = $state(false);
   let newCollectionName = $state('');
+  let addingSubfolderParentId = $state<string | null>(null);
+  let newSubfolderName = $state('');
 
   // Context Menu & Modal States
   let contextMenu = $state<{ x: number; y: number; req: YaracRequest; col: any } | null>(null);
@@ -31,6 +33,36 @@
   let renameCol = $state<{ col: any; newName: string } | null>(null);
   let deleteCol = $state<any | null>(null);
   let toast = $state<{ text: string; icon: string } | null>(null);
+
+  // Hierarchical Collection Tree Structure
+  export interface TreeNode {
+    col: any;
+    level: number;
+    subfolders: TreeNode[];
+    requests: YaracRequest[];
+  }
+
+  let collectionTree = $derived.by(() => {
+    const ws = workspaceStore.currentWorkspace;
+    const cols = ws.collections;
+    const reqs = ws.requests;
+
+    function buildNode(col: any, level: number): TreeNode {
+      const subcols = cols.filter(c => c.parentId === col.id);
+      const colReqs = reqs.filter(r => r.collectionId === col.id);
+      return {
+        col,
+        level,
+        subfolders: subcols.map(sc => buildNode(sc, level + 1)),
+        requests: colReqs
+      };
+    }
+
+    // Root collections are those without parentId, or whose parentId is not in cols
+    const colIds = new Set(cols.map(c => c.id));
+    const rootCols = cols.filter(c => !c.parentId || !colIds.has(c.parentId));
+    return rootCols.map(rc => buildNode(rc, 0));
+  });
 
   // Collapsible Tree View States
   let collapsedColIds = $state<Record<string, boolean>>({});
@@ -193,6 +225,15 @@
     isAddingCollection = false;
   }
 
+  function handleCreateSubfolder(parentId: string) {
+    if (!newSubfolderName.trim()) return;
+    workspaceStore.addFolder(parentId, newSubfolderName);
+    collapsedColIds[parentId] = false;
+    newSubfolderName = '';
+    addingSubfolderParentId = null;
+    showToast('Subfolder created', '📁');
+  }
+
   function handleCreateRequest(collectionId: string) {
     if (isColCollapsed(collectionId)) {
       collapsedColIds[collectionId] = false;
@@ -242,6 +283,15 @@
         icon: '➕',
         action: () => {
           handleCreateRequest(col.id);
+        }
+      },
+      {
+        id: 'new-folder',
+        label: 'New Subfolder',
+        icon: '📁',
+        action: () => {
+          addingSubfolderParentId = col.id;
+          collapsedColIds[col.id] = false;
         }
       },
       {
@@ -597,11 +647,13 @@
         </div>
       {/if}
 
-      {#each workspaceStore.currentWorkspace.collections as col, colIdx (col.id)}
-        {@const colRequests = workspaceStore.currentWorkspace.requests.filter(r => r.collectionId === col.id)}
+      {#snippet renderTreeNode(node: TreeNode)}
+        {@const col = node.col}
+        {@const colRequests = node.requests}
         {@const isColOver = dragOverColId === col.id}
         {@const collapsed = isColCollapsed(col.id)}
-        <div class="space-y-0.5">
+        {@const indentPx = node.level * 12}
+        <div class="space-y-0.5" style="padding-left: {indentPx}px">
           <!-- Folder Header with Drag and Drop -->
           <div
             role="button"
@@ -671,7 +723,15 @@
               <span class="text-[10px] text-apple-ink-muted-48 font-mono">{colRequests.length}</span>
               <button
                 type="button"
-                title="Add request to this collection"
+                title="Add subfolder"
+                onclick={(e) => { e.stopPropagation(); addingSubfolderParentId = col.id; collapsedColIds[col.id] = false; }}
+                class="opacity-0 group-hover:opacity-100 text-[10px] text-amber-400 hover:text-amber-300 px-1 rounded hover:bg-slate-700"
+              >
+                +sub
+              </button>
+              <button
+                type="button"
+                title="Add request to this folder"
                 onclick={(e) => { e.stopPropagation(); handleCreateRequest(col.id); }}
                 class="opacity-0 group-hover:opacity-100 text-[10px] text-apple-primary-on-dark hover:underline px-1 rounded-apple-sm hover:bg-apple-surface-tile-3"
               >
@@ -679,7 +739,7 @@
               </button>
               <button
                 type="button"
-                title="Collection menu"
+                title="Folder menu"
                 onclick={(e) => {
                   e.stopPropagation();
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -692,7 +752,39 @@
             </div>
           </div>
 
-          <!-- Requests in this collection -->
+          <!-- Inline Add Subfolder Form -->
+          {#if addingSubfolderParentId === col.id}
+            <div class="p-2 ml-4 rounded bg-slate-950 border border-slate-800 space-y-1">
+              <input
+                type="text"
+                bind:value={newSubfolderName}
+                placeholder="Subfolder name..."
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') handleCreateSubfolder(col.id);
+                  if (e.key === 'Escape') addingSubfolderParentId = null;
+                }}
+                class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 focus:outline-none"
+              />
+              <div class="flex justify-end gap-1 text-[11px]">
+                <button
+                  type="button"
+                  onclick={() => addingSubfolderParentId = null}
+                  class="px-2 py-0.5 rounded text-slate-400 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onclick={() => handleCreateSubfolder(col.id)}
+                  class="px-2 py-0.5 rounded bg-sky-600 text-white font-medium"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Requests in this folder -->
           {#if !collapsed}
             <div class="pl-3 space-y-0.5">
               {#each colRequests as req, reqIdx (req.id)}
@@ -773,9 +865,18 @@
                   </button>
                 </div>
               {/each}
+
+              <!-- Nested Subfolders -->
+              {#each node.subfolders as subnode (subnode.col.id)}
+                {@render renderTreeNode(subnode)}
+              {/each}
             </div>
           {/if}
         </div>
+      {/snippet}
+
+      {#each collectionTree as rootNode (rootNode.col.id)}
+        {@render renderTreeNode(rootNode)}
       {/each}
     </div>
   </div>

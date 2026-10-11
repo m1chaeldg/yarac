@@ -205,3 +205,37 @@ fn test_hdr_histogram_percentile_profiling() {
     assert!(hist.value_at_quantile(0.95) <= 80);
     assert!(hist.value_at_quantile(0.99) <= 120);
 }
+
+#[test]
+fn test_nested_collection_manifest_and_models() {
+    let manifest = WorkspaceManifest {
+        id: "ws_test".to_string(),
+        name: "Test Workspace".to_string(),
+        collections: vec![
+            CollectionMeta {
+                id: "col_root".to_string(),
+                name: "Billing".to_string(),
+                path: Some("Billing".to_string()),
+                parent_id: None,
+                request_files: vec![],
+            },
+            CollectionMeta {
+                id: "col_sub".to_string(),
+                name: "Invoices".to_string(),
+                path: Some("Billing/Invoices".to_string()),
+                parent_id: Some("col_root".to_string()),
+                request_files: vec![],
+            },
+        ],
+        active_environment_id: None,
+        open_tabs: vec!["req_invoice".to_string()],
+        active_tab: Some("req_invoice".to_string()),
+    };
+
+    let serialized = serde_json::to_string(&manifest).expect("Serialize manifest");
+    let deserialized: WorkspaceManifest = serde_json::from_str(&serialized).expect("Deserialize manifest");
+
+    assert_eq!(deserialized.collections.len(), 2);
+    assert_eq!(deserialized.collections[1].path.as_deref(), Some("Billing/Invoices"));
+    assert_eq!(deserialized.collections[1].parent_id.as_deref(), Some("col_root"));
+}
