@@ -8,6 +8,11 @@
   let { req }: Props = $props();
 
   let showBearerSecret = $state(false);
+  let showSigv4Secret = $state(false);
+
+  let parentCollection = $derived(
+    workspaceStore.currentWorkspace.collections.find(c => c.id === req.collectionId)
+  );
 </script>
 
 <div class="max-w-xl space-y-4 font-sans text-xs">
@@ -23,6 +28,7 @@
       <option value="bearer">Bearer Token</option>
       <option value="basic">Basic Auth</option>
       <option value="apikey">API Key</option>
+      <option value="sigv4">AWS SigV4 Signer</option>
       <option value="none">No Auth</option>
     </select>
   </div>
@@ -93,7 +99,7 @@
           />
         </div>
         <div class="space-y-1">
-          <label for="apikey-value-input" class="text-xs font-semibold text-apple-body-on-dark">Value</label>
+          <label for="apikey-value-input" class="text-xs font-semibold text-apple-body-on-dark">Key Value</label>
           <input
             id="apikey-value-input"
             type="text"
@@ -104,11 +110,110 @@
           />
         </div>
       </div>
+      <div class="space-y-1">
+        <label for="apikey-placement-select" class="text-xs font-semibold text-apple-body-on-dark">Placement</label>
+        <select
+          id="apikey-placement-select"
+          bind:value={req.auth.apiKeyLocation}
+          onchange={() => workspaceStore.updateActiveRequest({ auth: req.auth })}
+          class="w-full bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-sm px-3 py-1.5 text-xs text-apple-body-on-dark focus:outline-none focus:border-apple-primary font-medium"
+        >
+          <option value="header">Header (e.g. X-API-Key: value)</option>
+          <option value="query">Query Parameter (e.g. ?api_key=value)</option>
+        </select>
+      </div>
+    </div>
+
+  {:else if req.auth.type === 'sigv4'}
+    <div class="p-4 bg-apple-surface-tile-2 border border-apple-hairline-dark/60 rounded-apple-lg space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label for="sigv4-access-key" class="text-xs font-semibold text-apple-body-on-dark">Access Key ID</label>
+          <input
+            id="sigv4-access-key"
+            type="text"
+            bind:value={req.auth.awsAccessKeyId}
+            placeholder="AKIAIOSFODNN7EXAMPLE"
+            oninput={() => workspaceStore.updateActiveRequest({ auth: req.auth })}
+            class="w-full bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-sm px-3 py-1.5 text-xs font-mono text-apple-body-on-dark focus:outline-none focus:border-apple-primary"
+          />
+        </div>
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <label for="sigv4-secret-key" class="text-xs font-semibold text-apple-body-on-dark">Secret Access Key</label>
+            <button
+              type="button"
+              onclick={() => showSigv4Secret = !showSigv4Secret}
+              class="text-[10px] text-apple-link-on-dark hover:underline"
+            >
+              {showSigv4Secret ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          <input
+            id="sigv4-secret-key"
+            type={showSigv4Secret ? 'text' : 'password'}
+            bind:value={req.auth.awsSecretAccessKey}
+            placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            oninput={() => workspaceStore.updateActiveRequest({ auth: req.auth })}
+            class="w-full bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-sm px-3 py-1.5 text-xs font-mono text-apple-body-on-dark focus:outline-none focus:border-apple-primary"
+          />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label for="sigv4-region" class="text-xs font-semibold text-apple-body-on-dark">AWS Region</label>
+          <input
+            id="sigv4-region"
+            type="text"
+            bind:value={req.auth.awsRegion}
+            placeholder="us-east-1"
+            oninput={() => workspaceStore.updateActiveRequest({ auth: req.auth })}
+            class="w-full bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-sm px-3 py-1.5 text-xs font-mono text-apple-body-on-dark focus:outline-none focus:border-apple-primary"
+          />
+        </div>
+        <div class="space-y-1">
+          <label for="sigv4-service" class="text-xs font-semibold text-apple-body-on-dark">Service Name</label>
+          <input
+            id="sigv4-service"
+            type="text"
+            bind:value={req.auth.awsService}
+            placeholder="execute-api"
+            oninput={() => workspaceStore.updateActiveRequest({ auth: req.auth })}
+            class="w-full bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-sm px-3 py-1.5 text-xs font-mono text-apple-body-on-dark focus:outline-none focus:border-apple-primary"
+          />
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label for="sigv4-session-token" class="text-xs font-semibold text-apple-body-on-dark">Session Token (Optional)</label>
+        <input
+          id="sigv4-session-token"
+          type="password"
+          bind:value={req.auth.awsSessionToken}
+          placeholder="Optional STS temporary security session token"
+          oninput={() => workspaceStore.updateActiveRequest({ auth: req.auth })}
+          class="w-full bg-apple-surface-black border border-apple-hairline-dark/80 rounded-apple-sm px-3 py-1.5 text-xs font-mono text-apple-body-on-dark focus:outline-none focus:border-apple-primary"
+        />
+      </div>
     </div>
 
   {:else if req.auth.type === 'inherit'}
-    <div class="p-4 bg-apple-surface-tile-2 border border-apple-hairline-dark/60 rounded-apple-lg text-apple-body-muted text-xs">
-      This request inherits authentication credentials configured at the collection or workspace level.
+    <div class="p-4 bg-apple-surface-tile-2 border border-apple-hairline-dark/60 rounded-apple-lg space-y-2 text-xs">
+      <div class="flex items-center gap-2">
+        <span class="text-apple-link-on-dark font-semibold">📁 Inherit Collection Auth</span>
+      </div>
+      <p class="text-apple-body-muted">
+        This request inherits authentication credentials configured on <span class="font-semibold text-white">"{parentCollection?.name || 'Parent Collection'}"</span>.
+      </p>
+      {#if parentCollection?.auth && parentCollection.auth.type !== 'none' && parentCollection.auth.type !== 'inherit'}
+        <div class="mt-2 p-2 bg-apple-surface-tile-3 rounded-apple-sm border border-apple-hairline-dark/80 text-[11px] font-mono">
+          <span class="text-apple-ink-muted-48">Active parent auth: </span>
+          <span class="text-emerald-400 font-bold uppercase">{parentCollection.auth.type}</span>
+        </div>
+      {:else}
+        <div class="mt-2 p-2 bg-apple-surface-tile-3 rounded-apple-sm border border-apple-hairline-dark/80 text-[11px] text-apple-ink-muted-48">
+          No parent authentication configured yet. Configure auth in Collection Settings.
+        </div>
+      {/if}
     </div>
   {/if}
 </div>

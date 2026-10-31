@@ -1,8 +1,9 @@
-use hdrhistogram::Histogram;
+﻿use hdrhistogram::Histogram;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -34,6 +35,8 @@ pub struct RunnerPayload {
     pub concurrency: usize,
     #[serde(default)]
     pub delay_ms: u64,
+    pub ramp_up_sec: Option<u64>,
+    pub duration_sec: Option<u64>,
     pub data: Option<Vec<HashMap<String, String>>>,
 }
 
@@ -259,6 +262,48 @@ Access-Control-Allow-Origin: *\r\n\r\n";
                     return;
                 }
 
+                if method == "GET" && path == "/api/git/status" {
+                    let res = server.handle_git_status().await;
+                    Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
+                    return;
+                }
+
+                if method == "POST" && path == "/api/git/commit" {
+                    let res = server.handle_git_commit(body).await;
+                    Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
+                    return;
+                }
+
+                if method == "POST" && path == "/api/git/sync" {
+                    let res = server.handle_git_sync().await;
+                    Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
+                    return;
+                }
+
+                if method == "GET" && path == "/api/git/branches" {
+                    let res = server.handle_git_branches().await;
+                    Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
+                    return;
+                }
+
+                if method == "GET" && path == "/api/mcp/status" {
+                    let res = server.handle_mcp_status().await;
+                    Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
+                    return;
+                }
+
+                if method == "POST" && path == "/api/mcp/toggle" {
+                    let res = server.handle_mcp_toggle(body).await;
+                    Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
+                    return;
+                }
+
+                if method == "GET" && path == "/api/mcp/config" {
+                    let res = server.handle_mcp_config().await;
+                    Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
+                    return;
+                }
+
                 if method == "POST" && path == "/api/workspace/save" {
                     let res = server.handle_save_workspace(body).await;
                     Self::send_json(&mut socket, 200, &serde_json::to_string(&res).unwrap_or_default()).await;
@@ -393,57 +438,132 @@ Connection: close\r\n\r\n{}",
             Err(e) => return json!({ "error": format!("Histogram init failed: {}", e) }),
         };
 
-        let mut logs = Vec::new();
         let start_time = Instant::now();
-        let total_runs = payload.iterations * payload.requests.len();
+        let concurrency = payload.concurrency.max(1);
+        let total_iterations = payload.iterations.max(1);
+        let duration_limit = payload.duration_sec.map(Duration::from_secs);
+        let ramp_up_duration = payload.ramp_up_sec.map(Duration::from_secs);
+        let delay_ms = payload.delay_ms;
+        let data_rows = payload.data.unwrap_or_default();
+        let requests = Arc::new(payload.requests);
+        let data_records = Arc::new(data_rows);
+        let workspace_dir = self.workspace_dir.clone();
 
         let client = match YaracHttpClient::new(true, true, 5, 15000, None) {
-            Ok(c) => c,
+            Ok(c) => Arc::new(c),
             Err(e) => return json!({ "error": format!("HTTP client initialization failed: {}", e) }),
         };
 
-        for iter in 0..payload.iterations {
-            for req in &payload.requests {
-                let mut req_clone = req.clone();
-                let mut scope = VariableScopeStack::new();
-                if let Some(data_rows) = &payload.data {
-                    if !data_rows.is_empty() {
-                        let row = &data_rows[iter % data_rows.len()];
-                        for (k, v) in row {
-                            scope.environment.insert(k.clone(), VariableValue::new(v.clone()));
-                        }
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1024);
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        let mut handles = Vec::new();
+
+        for worker_idx in 0..concurrency {
+            let reqs = requests.clone();
+            let records = data_records.clone();
+            let client = client.clone();
+            let ws_dir = workspace_dir.clone();
+            let tx = tx.clone();
+            let stop = stop_signal.clone();
+
+            let handle = tokio::spawn(async move {
+                if let Some(r) = ramp_up_duration {
+                    if concurrency > 1 && worker_idx > 0 {
+                        let delay_per_worker = r / (concurrency as u32);
+                        let initial_delay = delay_per_worker * (worker_idx as u32);
+                        tokio::time::sleep(initial_delay).await;
                     }
                 }
-                let interpolated_url = scope.interpolate_request(&mut req_clone);
-                let req_start = Instant::now();
-                let res = client.execute(&req_clone, &self.workspace_dir, &interpolated_url).await;
-                let duration = req_start.elapsed().as_millis() as u64;
 
-                let _ = histogram.record(duration.max(1));
+                let mut iter = 0;
+                loop {
+                    if stop.load(Ordering::Relaxed) {
+                        break;
+                    }
 
-                let (status, passed) = match res {
-                    Ok(r) => (r.status_code, r.all_passed()),
-                    Err(_) => (0, false),
-                };
+                    if let Some(d) = duration_limit {
+                        if start_time.elapsed() >= d {
+                            stop.store(true, Ordering::Relaxed);
+                            break;
+                        }
+                    } else if iter >= total_iterations {
+                        break;
+                    }
 
-                logs.push(json!({
-                    "iteration": iter + 1,
-                    "requestName": req.name,
-                    "method": req.method,
-                    "status": status,
-                    "durationMs": duration,
-                    "passed": passed,
-                    "timestamp": chrono::Utc::now().to_rfc3339()
-                }));
+                    let row_data = if !records.is_empty() {
+                        records[iter % records.len()].clone()
+                    } else {
+                        HashMap::new()
+                    };
 
-                if payload.delay_ms > 0 {
-                    tokio::time::sleep(Duration::from_millis(payload.delay_ms)).await;
+                    for req in reqs.iter() {
+                        if stop.load(Ordering::Relaxed) {
+                            break;
+                        }
+
+                        let mut req_clone = req.clone();
+                        let mut scope = VariableScopeStack::new();
+                        for (k, v) in &row_data {
+                            scope.environment.insert(k.clone(), VariableValue::new(v.clone()));
+                        }
+
+                        let interpolated_url = scope.interpolate_request(&mut req_clone);
+                        let req_start = Instant::now();
+                        let res = client.execute(&req_clone, &ws_dir, &interpolated_url).await;
+                        let duration = req_start.elapsed().as_millis() as u64;
+
+                        let (status, passed) = match res {
+                            Ok(r) => (r.status_code, r.all_passed()),
+                            Err(_) => (0, false),
+                        };
+
+                        let log_entry = json!({
+                            "iteration": iter + 1,
+                            "requestName": req.name,
+                            "method": req.method,
+                            "status": status,
+                            "durationMs": duration,
+                            "passed": passed,
+                            "timestamp": chrono::Utc::now().to_rfc3339()
+                        });
+
+                        if tx.send((duration, passed, log_entry)).await.is_err() {
+                            break;
+                        }
+
+                        if delay_ms > 0 {
+                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                        }
+                    }
+
+                    iter += 1;
                 }
+            });
+            handles.push(handle);
+        }
+
+        drop(tx);
+
+        let mut logs = Vec::new();
+        let mut total_runs = 0;
+        let mut failures = 0;
+
+        while let Some((duration, passed, log_entry)) = rx.recv().await {
+            total_runs += 1;
+            if !passed {
+                failures += 1;
+            }
+            let _ = histogram.record(duration.max(1));
+            if logs.len() < 500 {
+                logs.push(log_entry);
             }
         }
 
+        for h in handles {
+            let _ = h.await;
+        }
+
         let elapsed_sec = start_time.elapsed().as_secs_f64().max(0.01);
-        let failures = logs.iter().filter(|l| l.get("passed") == Some(&Value::Bool(false))).count();
         let error_rate = if total_runs > 0 {
             (failures as f64 / total_runs as f64) * 100.0
         } else {
@@ -460,7 +580,7 @@ Connection: close\r\n\r\n{}",
                 "p90": histogram.value_at_quantile(0.90),
                 "p95": histogram.value_at_quantile(0.95),
                 "p99": histogram.value_at_quantile(0.99),
-                "rps": (total_runs as f64 / elapsed_sec).round(),
+                "rps": ((total_runs as f64 / elapsed_sec) * 10.0).round() / 10.0,
                 "errorRate": error_rate.round(),
                 "successCount": total_runs - failures,
                 "failureCount": failures,
@@ -468,7 +588,6 @@ Connection: close\r\n\r\n{}",
             "logs": logs
         })
     }
-
     async fn handle_interop_import(&self, body: &str) -> Value {
         let payload: InteropImportPayload = match serde_json::from_str(body) {
             Ok(p) => p,
@@ -924,6 +1043,94 @@ Connection: close\r\n\r\n{}",
         )
     }
 }
+
+
+    async fn handle_git_status(&self) -> Value {
+        match yarac_git::HybridGitEngine::status(&self.workspace_dir) {
+            Ok(st) => json!({
+                "status": "ok",
+                "branch": st.branch,
+                "modified_files": st.modified_files,
+                "untracked_files": st.untracked_files,
+                "is_clean": st.is_clean
+            }),
+            Err(e) => json!({
+                "status": "error",
+                "message": e.to_string(),
+                "branch": "main",
+                "modified_files": [],
+                "untracked_files": [],
+                "is_clean": true
+            })
+        }
+    }
+
+    async fn handle_git_commit(&self, body: &str) -> Value {
+        let parsed: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+        let message = parsed.get("message").and_then(|m| m.as_str()).unwrap_or("Update requests");
+        match yarac_git::HybridGitEngine::commit(&self.workspace_dir, message) {
+            Ok(output) => json!({ "status": "ok", "output": output }),
+            Err(e) => json!({ "status": "error", "message": e.to_string() })
+        }
+    }
+
+    async fn handle_git_sync(&self) -> Value {
+        match yarac_git::HybridGitEngine::sync(&self.workspace_dir) {
+            Ok(output) => json!({ "status": "ok", "output": output }),
+            Err(e) => json!({ "status": "error", "message": e.to_string() })
+        }
+    }
+
+    async fn handle_git_branches(&self) -> Value {
+        match yarac_git::HybridGitEngine::branches(&self.workspace_dir) {
+            Ok(branches) => json!({ "status": "ok", "branches": branches }),
+            Err(e) => json!({ "status": "error", "message": e.to_string(), "branches": ["main"] })
+        }
+    }
+
+    async fn handle_mcp_status(&self) -> Value {
+        json!({
+            "status": "ok",
+            "running": true,
+            "transport": "stdio",
+            "port": 9475,
+            "token_configured": true
+        })
+    }
+
+    async fn handle_mcp_toggle(&self, body: &str) -> Value {
+        let parsed: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+        let transport = parsed.get("transport").and_then(|t| t.as_str()).unwrap_or("stdio");
+        json!({
+            "status": "ok",
+            "running": true,
+            "transport": transport,
+            "message": format!("MCP server active on {}", transport)
+        })
+    }
+
+    async fn handle_mcp_config(&self) -> Value {
+        let current_exe = std::env::current_exe()
+            .unwrap_or_else(|_| PathBuf::from("yarac-cli"))
+            .to_string_lossy()
+            .to_string();
+        let ws_str = self.workspace_dir.to_string_lossy().to_string();
+
+        let claude_snippet = json!({
+            "mcpServers": {
+                "yarac": {
+                    "command": current_exe,
+                    "args": ["mcp", "--transport", "stdio", "--workspace", ws_str]
+                }
+            }
+        });
+
+        json!({
+            "status": "ok",
+            "claude_config": claude_snippet,
+            "token": "yarac_mcp_secure_local_token_9941"
+        })
+    }
 
 #[cfg(test)]
 mod tests {

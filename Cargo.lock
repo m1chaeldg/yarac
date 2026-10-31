@@ -8230,6 +8230,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "yarac-core",
+ "yarac-git",
  "yarac-importer",
  "yarac-mcp",
  "yarac-net",

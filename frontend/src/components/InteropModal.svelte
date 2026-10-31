@@ -42,6 +42,53 @@ tests {
   let exportVersion = $state('1.0.0');
   let exportResult = $state('');
   let statusMessage = $state<{ text: string; type: 'success' | 'error' } | null>(null);
+  let fileInput = $state<HTMLInputElement | null>(null);
+  let importedFileName = $state<string | null>(null);
+  let isDraggingFile = $state(false);
+
+  function handleFileSelected(file: File) {
+    importedFileName = file.name;
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.bru')) {
+      importFormat = 'bruno';
+    } else if (lower.endsWith('.json') || lower.endsWith('.yaml') || lower.endsWith('.yml')) {
+      // Auto-detect format by content later
+      if (lower.includes('postman')) importFormat = 'postman';
+      else importFormat = 'openapi';
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string || '';
+      importText = text;
+      // Content auto-detection
+      if (text.includes('"_postman_id"') || text.includes('schema.getpostman.com')) {
+        importFormat = 'postman';
+      } else if (text.includes('"openapi"') || text.includes('openapi:') || text.includes('"swagger"')) {
+        importFormat = 'openapi';
+      }
+      statusMessage = { text: `Loaded file: ${file.name} (${Math.round(file.size / 1024)} KB)`, type: 'success' };
+    };
+    reader.readAsText(file);
+  }
+
+  function handleFileDrop(e: DragEvent) {
+    e.preventDefault();
+    isDraggingFile = false;
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleFileSelected(file);
+  }
+
+  function downloadExport() {
+    if (!exportResult) return;
+    const blob = new Blob([exportResult], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `openapi-${exportTitle.toLowerCase().replace(/\s+/g, '-')}-v${exportVersion}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function executeImport() {
     statusMessage = null;
@@ -189,6 +236,48 @@ tests {
           </div>
 
           <div>
+            <input
+              type="file"
+              accept=".json,.yaml,.yml,.bru"
+              bind:this={fileInput}
+              onchange={(e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file) handleFileSelected(file);
+                (e.target as HTMLInputElement).value = '';
+              }}
+              class="hidden"
+            />
+
+            <!-- File Upload Dropzone / Button -->
+            <div
+              role="region"
+              aria-label="Specification file drop area"
+              ondragover={(e) => { e.preventDefault(); isDraggingFile = true; }}
+              ondragleave={() => isDraggingFile = false}
+              ondrop={handleFileDrop}
+              class="border-2 border-dashed rounded-apple-md p-3 text-center transition-colors flex items-center justify-between gap-3 ${isDraggingFile ? 'border-apple-primary bg-apple-primary/10' : 'border-apple-hairline-dark/80 bg-apple-surface-tile-2'}"
+            >
+              <div class="flex items-center gap-2 text-left">
+                <span class="text-xl">📁</span>
+                <div>
+                  <span class="text-xs font-semibold text-apple-body-on-dark block">
+                    {importedFileName ? importedFileName : 'Upload Specification File'}
+                  </span>
+                  <span class="apple-fine-print text-apple-ink-muted-48">
+                    Drag and drop .json, .yaml, or .bru, or click to browse
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onclick={() => fileInput?.click()}
+                class="apple-button-dark-utility px-3 py-1 text-xs text-apple-primary-on-dark shrink-0"
+              >
+                Browse...
+              </button>
+            </div>
+
             <label for="import-paste-area" class="block apple-micro-legal font-semibold text-apple-ink-muted-48 uppercase tracking-wider mb-1.5">
               Paste Specification or Request Content
             </label>

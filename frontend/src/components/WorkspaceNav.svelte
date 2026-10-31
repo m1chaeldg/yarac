@@ -4,6 +4,7 @@
   import ContextMenu, { type ContextMenuItem } from './ContextMenu.svelte';
   import CodeGeneratorModal from './CodeGeneratorModal.svelte';
   import RequestInfoModal from './RequestInfoModal.svelte';
+  import CollectionSettingsModal from './CollectionSettingsModal.svelte';
   import { resolveUrl, CODE_LANGUAGES, getRelativeRequestPath } from '../utils/codeGenerators';
 
   interface Props {
@@ -32,6 +33,7 @@
   let deleteReq = $state<YaracRequest | null>(null);
   let renameCol = $state<{ col: any; newName: string } | null>(null);
   let deleteCol = $state<any | null>(null);
+  let settingsCol = $state<any | null>(null);
   let toast = $state<{ text: string; icon: string } | null>(null);
 
   // Hierarchical Collection Tree Structure
@@ -368,6 +370,14 @@
         }
       },
       { id: 'sep-col', label: '', separator: true, action: () => {} },
+      {
+        id: 'settings-col',
+        label: 'Collection Settings',
+        icon: '⚙️',
+        action: () => {
+          settingsCol = col;
+        }
+      },
       {
         id: 'rename-col',
         label: 'Rename Collection',
@@ -781,7 +791,7 @@
               </button>
               <button
                 type="button"
-                title="Folder menu"
+                title="Collection Settings" onclick={(e) => { e.stopPropagation(); settingsCol = col; }} class="opacity-0 group-hover:opacity-100 hover:text-white px-1 py-0.5 rounded-apple-sm text-[10px] text-apple-body-muted hover:bg-apple-surface-tile-3">⚙</button><button type="button" title="Folder menu"
                 onclick={(e) => {
                   e.stopPropagation();
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -1215,6 +1225,15 @@
       </div>
     </div>
   </div>
+{/if}
+
+<!-- Collection Settings Modal -->
+{#if settingsCol}
+  <CollectionSettingsModal
+    isOpen={Boolean(settingsCol)}
+    collection={settingsCol}
+    onClose={() => settingsCol = null}
+  />
 {/if}
 
 <!-- Toast Feedback -->

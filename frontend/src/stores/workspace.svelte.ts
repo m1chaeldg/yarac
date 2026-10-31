@@ -8,9 +8,10 @@ export interface KeyValuePair {
   enabled: boolean;
   description?: string;
   isSecret?: boolean;
+  storageTarget?: 'file' | 'keyring' | 'local';
 }
 
-export type AuthType = 'inherit' | 'none' | 'bearer' | 'basic' | 'apikey';
+export type AuthType = 'inherit' | 'none' | 'bearer' | 'basic' | 'apikey' | 'sigv4';
 
 export interface AuthConfig {
   type: AuthType;
@@ -20,9 +21,14 @@ export interface AuthConfig {
   apiKeyName?: string;
   apiKeyValue?: string;
   apiKeyLocation?: 'header' | 'query';
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+  awsRegion?: string;
+  awsService?: string;
+  awsSessionToken?: string;
 }
 
-export type BodyType = 'none' | 'json' | 'xml' | 'text' | 'form-urlencoded' | 'multipart' | 'binary' | 'raw';
+export type BodyType = 'none' | 'json' | 'xml' | 'text' | 'form-urlencoded' | 'multipart' | 'binary' | 'raw' | 'graphql';
 
 export interface FormDataItem extends KeyValuePair {
   type?: 'text' | 'file';
@@ -35,6 +41,7 @@ export interface BodyConfig {
   formData: FormDataItem[];
   binaryFilePath?: string;
   binaryContentType?: string;
+  graphqlVariables?: string;
 }
 
 export interface RequestSettings {
@@ -43,6 +50,9 @@ export interface RequestSettings {
   followRedirects: boolean;
   maxRedirects: number;
   timeoutMs: number;
+  clientCertPath?: string;
+  clientKeyPath?: string;
+  clientCertPassphrase?: string;
 }
 
 export interface ScriptHooks {
@@ -93,6 +103,22 @@ export interface Collection {
   name: string;
   path?: string;
   parentId?: string;
+  description?: string;
+  auth?: AuthConfig;
+  headers?: KeyValuePair[];
+  variables?: KeyValuePair[];
+  scripts?: ScriptHooks;
+}
+
+export interface CookieItem {
+  id: string;
+  domain: string;
+  path: string;
+  name: string;
+  value: string;
+  expires?: string;
+  httpOnly?: boolean;
+  secure?: boolean;
 }
 
 export interface Workspace {
@@ -101,6 +127,9 @@ export interface Workspace {
   collections: Collection[];
   requests: YaracRequest[];
   environments: EnvironmentProfile[];
+  globalVariables?: KeyValuePair[];
+  settings?: { scrubTaintedSecrets?: boolean };
+  cookies?: CookieItem[];
   activeEnvironmentId: string;
   openTabIds: string[];
   activeTabId: string;
@@ -125,6 +154,9 @@ export function serializeToDsl(req: YaracRequest): string {
   lines.push(`follow_redirects = ${req.settings?.followRedirects ?? true}`);
   lines.push(`max_redirects = ${req.settings?.maxRedirects ?? 5}`);
   lines.push(`timeout_ms = ${req.settings?.timeoutMs ?? 0}`);
+  if (req.settings?.clientCertPath) lines.push(`client_cert = "${req.settings.clientCertPath.replace(/"/g, '\\"')}"`);
+  if (req.settings?.clientKeyPath) lines.push(`client_key = "${req.settings.clientKeyPath.replace(/"/g, '\\"')}"`);
+  if (req.settings?.clientCertPassphrase) lines.push(`client_passphrase = "${req.settings.clientCertPassphrase.replace(/"/g, '\\"')}"`);
   lines.push(``);
 
   const paramsToSerialize = (req.params || []).filter(p => p.key.trim());
@@ -175,6 +207,14 @@ export function serializeToDsl(req: YaracRequest): string {
       lines.push(`key = "${req.auth.apiKeyName || ''}"`);
       lines.push(`value = "${req.auth.apiKeyValue || ''}"`);
       lines.push(`placement = "${req.auth.apiKeyLocation || 'header'}"`);
+    } else if (req.auth.type === 'sigv4') {
+      lines.push(`access_key = "${req.auth.awsAccessKeyId || ''}"`);
+      lines.push(`secret_key = "${req.auth.awsSecretAccessKey || ''}"`);
+      lines.push(`region = "${req.auth.awsRegion || ''}"`);
+      lines.push(`service = "${req.auth.awsService || ''}"`);
+      if (req.auth.awsSessionToken) {
+        lines.push(`session_token = "${req.auth.awsSessionToken}"`);
+      }
     }
     lines.push(``);
   }
@@ -234,6 +274,19 @@ export function serializeToDsl(req: YaracRequest): string {
           lines.push(`${k} = "${(f.value || '').replace(/"/g, '\\"')}"`);
         }
       }
+      lines.push(``);
+    }
+  } else if (req.body.type === 'graphql') {
+    lines.push(`[body.graphql]`);
+    lines.push('```graphql');
+    lines.push(req.body.rawContent || '');
+    lines.push('```');
+    lines.push(``);
+    if (req.body.graphqlVariables?.trim()) {
+      lines.push(`[body.graphql.vars]`);
+      lines.push('```json');
+      lines.push(req.body.graphqlVariables.trim());
+      lines.push('```');
       lines.push(``);
     }
   } else if (req.body.type === 'binary') {
@@ -301,13 +354,19 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
     const followRedirects = sText.match(/follow_redirects\s*=\s*(true|false)/);
     const maxRedirects = sText.match(/max_redirects\s*=\s*(\d+)/);
     const timeoutMs = sText.match(/timeout_ms\s*=\s*(\d+)/);
+    const clientCert = sText.match(/client_cert\s*=\s*"([^"]+)"/);
+    const clientKey = sText.match(/client_key\s*=\s*"([^"]+)"/);
+    const clientPassphrase = sText.match(/client_passphrase\s*=\s*"([^"]+)"/);
 
     updated.settings = {
       inheritAuth: inheritAuth ? inheritAuth[1] === 'true' : (updated.settings?.inheritAuth ?? true),
       verifySsl: verifySsl ? verifySsl[1] === 'true' : (updated.settings?.verifySsl ?? true),
       followRedirects: followRedirects ? followRedirects[1] === 'true' : (updated.settings?.followRedirects ?? true),
       maxRedirects: maxRedirects ? parseInt(maxRedirects[1], 10) : (updated.settings?.maxRedirects ?? 5),
-      timeoutMs: timeoutMs ? parseInt(timeoutMs[1], 10) : (updated.settings?.timeoutMs ?? 0)
+      timeoutMs: timeoutMs ? parseInt(timeoutMs[1], 10) : (updated.settings?.timeoutMs ?? 0),
+      clientCertPath: clientCert ? clientCert[1] : updated.settings?.clientCertPath,
+      clientKeyPath: clientKey ? clientKey[1] : updated.settings?.clientKeyPath,
+      clientCertPassphrase: clientPassphrase ? clientPassphrase[1] : updated.settings?.clientCertPassphrase
     };
   }
 
@@ -367,6 +426,26 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
       updated.auth.type = typeMatch[1] as AuthType;
       const tokenMatch = text.match(/token\s*=\s*"([^"]+)"/);
       if (tokenMatch) updated.auth.bearerToken = tokenMatch[1];
+      const userMatch = text.match(/username\s*=\s*"([^"]+)"/);
+      if (userMatch) updated.auth.basicUsername = userMatch[1];
+      const passMatch = text.match(/password\s*=\s*"([^"]+)"/);
+      if (passMatch) updated.auth.basicPassword = passMatch[1];
+      const keyMatch = text.match(/key\s*=\s*"([^"]+)"/);
+      if (keyMatch) updated.auth.apiKeyName = keyMatch[1];
+      const valMatch = text.match(/value\s*=\s*"([^"]+)"/);
+      if (valMatch) updated.auth.apiKeyValue = valMatch[1];
+      const placeMatch = text.match(/placement\s*=\s*"([^"]+)"/);
+      if (placeMatch) updated.auth.apiKeyLocation = placeMatch[1] as any;
+      const akMatch = text.match(/access_key\s*=\s*"([^"]+)"/);
+      if (akMatch) updated.auth.awsAccessKeyId = akMatch[1];
+      const skMatch = text.match(/secret_key\s*=\s*"([^"]+)"/);
+      if (skMatch) updated.auth.awsSecretAccessKey = skMatch[1];
+      const regMatch = text.match(/region\s*=\s*"([^"]+)"/);
+      if (regMatch) updated.auth.awsRegion = regMatch[1];
+      const srvMatch = text.match(/service\s*=\s*"([^"]+)"/);
+      if (srvMatch) updated.auth.awsService = srvMatch[1];
+      const sessMatch = text.match(/session_token\s*=\s*"([^"]+)"/);
+      if (sessMatch) updated.auth.awsSessionToken = sessMatch[1];
     }
   }
 
@@ -425,6 +504,16 @@ export function parseDslToRequest(dsl: string, current: YaracRequest): YaracRequ
   }
 
   const bodyBinaryMatch = dsl.match(/\[body\.binary\]([\s\S]*?)(?=\n\[|$)/);
+  const bodyGraphqlMatch = dsl.match(/\[body\.graphql\]\s*```(?:graphql|gql)?([\s\S]*?)```/);
+  if (bodyGraphqlMatch) {
+    updated.body.type = 'graphql';
+    updated.body.rawContent = bodyGraphqlMatch[1].trim();
+  }
+  const bodyGraphqlVarsMatch = dsl.match(/\[body\.graphql\.vars\]\s*```(?:json)?([\s\S]*?)```/);
+  if (bodyGraphqlVarsMatch) {
+    updated.body.graphqlVariables = bodyGraphqlVarsMatch[1].trim();
+  }
+
   if (bodyBinaryMatch) {
     updated.body.type = 'binary';
     const fileMatch = bodyBinaryMatch[1].match(/(?:file|path)\s*=\s*"([^"]+)"/);
@@ -1025,6 +1114,59 @@ export class WorkspaceStore {
 
   addFolder(parentId: string, name: string): string {
     return this.addCollection(name, parentId);
+  }
+
+  updateCollection(collectionId: string, updates: Partial<Collection>): boolean {
+    const col = this.currentWorkspace.collections.find(c => c.id === collectionId);
+    if (!col) return false;
+    Object.assign(col, updates);
+    this.scheduleDiskSync();
+    return true;
+  }
+
+
+  updateGlobalVariables(vars: KeyValuePair[]): void {
+    this.currentWorkspace.globalVariables = vars;
+    this.scheduleDiskSync();
+  }
+
+  addCookie(cookie: Omit<CookieItem, 'id'>): CookieItem {
+    if (!this.currentWorkspace.cookies) this.currentWorkspace.cookies = [];
+    const item: CookieItem = { ...cookie, id: 'ck_' + generateId() };
+    this.currentWorkspace.cookies.push(item);
+    this.scheduleDiskSync();
+    return item;
+  }
+
+  updateCookie(cookieId: string, updates: Partial<CookieItem>): boolean {
+    if (!this.currentWorkspace.cookies) return false;
+    const ck = this.currentWorkspace.cookies.find(c => c.id === cookieId);
+    if (!ck) return false;
+    Object.assign(ck, updates);
+    this.scheduleDiskSync();
+    return true;
+  }
+
+  deleteCookie(cookieId: string): boolean {
+    if (!this.currentWorkspace.cookies) return false;
+    this.currentWorkspace.cookies = this.currentWorkspace.cookies.filter(c => c.id !== cookieId);
+    this.scheduleDiskSync();
+    return true;
+  }
+
+  clearCookies(domain?: string): void {
+    if (!this.currentWorkspace.cookies) return;
+    if (domain) {
+      this.currentWorkspace.cookies = this.currentWorkspace.cookies.filter(c => c.domain !== domain);
+    } else {
+      this.currentWorkspace.cookies = [];
+    }
+    this.scheduleDiskSync();
+  }
+
+  updateWorkspaceSettings(settings: { scrubTaintedSecrets?: boolean }): void {
+    this.currentWorkspace.settings = { ...(this.currentWorkspace.settings || {}), ...settings };
+    this.scheduleDiskSync();
   }
 
   renameCollection(collectionId: string, newName: string): boolean {

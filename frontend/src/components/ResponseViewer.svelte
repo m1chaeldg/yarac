@@ -1,10 +1,11 @@
-<script lang="ts">
+﻿<script lang="ts">
   import ResponseTableViewer from './response/ResponseTableViewer.svelte';
   import ResponseHeadersTab from './response/ResponseHeadersTab.svelte';
   import ResponseTestsTab from './response/ResponseTestsTab.svelte';
   import ResponseTimelineTab from './response/ResponseTimelineTab.svelte';
   import ResponseVisualizer from './response/ResponseVisualizer.svelte';
   import JsonTreeView from './response/JsonTreeView.svelte';
+  import PayloadViewer from './PayloadViewer.svelte';
   import { parseTableData } from '../utils/responseUtils';
   import { calculateTestSummary } from '../utils/responseMetrics';
   import { formatDuration, formatSize, getStatusBadgeColor } from '../utils/statusUtils';
@@ -57,7 +58,14 @@
     layoutOrientation = 'vertical'
   }: Props = $props();
 
-  let activeView = $state<'json' | 'table' | 'visualizer' | 'html' | 'xml' | 'raw' | 'headers' | 'tests' | 'timeline'>('json');
+    let activeView = $state<'json' | 'table' | 'visualizer' | 'html' | 'xml' | 'raw' | 'headers' | 'tests' | 'timeline' | 'virtual'>('json');
+  let isLargePayload = $derived((response?.sizeBytes || 0) > 2 * 1024 * 1024 || (response?.body?.length || 0) > 2000000);
+
+  $effect(() => {
+    if (isLargePayload && (activeView === 'json' || activeView === 'table' || activeView === 'visualizer')) {
+      activeView = 'virtual';
+    }
+  });
   let isToolsMenuOpen = $state(false);
   let copyFeedback = $state('');
 
@@ -237,6 +245,19 @@
         {/if}
       </button>
 
+      {#if isLargePayload || activeView === 'virtual'}
+        <button
+          type="button"
+          onclick={() => activeView = 'virtual'}
+          class="px-2.5 py-1 rounded-apple-sm text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer {activeView === 'virtual' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80' : 'text-apple-body-muted hover:text-white'}"
+        >
+          <span>⚡ Virtual</span>
+          {#if isLargePayload}
+            <span class="text-[9px] px-1 rounded bg-emerald-900 text-emerald-200 font-mono">&gt;2MB</span>
+          {/if}
+        </button>
+      {/if}
+
       <!-- Tools Ellipsis Dropdown (...) -->
       <div class="relative ml-1">
         <button
@@ -277,6 +298,13 @@
               class="w-full text-left px-3 py-1.5 hover:bg-apple-surface-tile-3 flex items-center gap-2"
             >
               <span>⬇</span> Download Raw (.txt)
+            </button>
+                        <button
+              type="button"
+              onclick={() => { activeView = 'virtual'; isToolsMenuOpen = false; }}
+              class="w-full text-left px-3 py-1.5 hover:bg-apple-surface-tile-3 flex items-center gap-2"
+            >
+              <span>⚡</span> Virtualized Viewport (&gt;2MB)
             </button>
             <div class="border-t border-apple-hairline-dark/60 my-1"></div>
             {#if onToggleLayout}
@@ -338,6 +366,12 @@
       <ResponseTestsTab assertions={response.assertions} logs={response.logs} />
     {:else if activeView === 'timeline'}
       <ResponseTimelineTab timeline={timeline} />
+    {:else if activeView === 'virtual' || isLargePayload}
+      <PayloadViewer
+        payload={response.body}
+        totalBytes={response.sizeBytes}
+        {isLargePayload}
+      />
     {/if}
   </div>
 </div>

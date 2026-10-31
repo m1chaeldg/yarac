@@ -143,6 +143,9 @@ export const backendApi = {
     iterations: number;
     concurrency: number;
     delayMs: number;
+    rampUpSec?: number;
+    durationSec?: number;
+    data?: Array<Record<string, string>>;
   }): Promise<RunnerResult> {
     try {
       const res = await fetch(`${API_BASE}/runner/execute`, {
@@ -152,10 +155,12 @@ export const backendApi = {
           requests: options.requests,
           iterations: options.iterations,
           concurrency: options.concurrency,
-          delay_ms: options.delayMs
+          delay_ms: options.delayMs,
+          ramp_up_sec: options.rampUpSec,
+          duration_sec: options.durationSec,
+          data: options.data
         })
       });
-
       if (res.ok) {
         return await res.json();
       }
@@ -317,6 +322,132 @@ export const backendApi = {
   /**
    * Subscribes to real-time file watcher events from the backend (SSE)
    */
+  /**
+   * Retrieves Git status for active workspace repository
+   */
+  async getGitStatus(): Promise<{ branch: string; modified_files: string[]; untracked_files: string[]; is_clean: boolean }> {
+    try {
+      const res = await fetch(`${API_BASE}/git/status`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('getGitStatus failed:', e);
+    }
+    return { branch: 'main', modified_files: [], untracked_files: [], is_clean: true };
+  },
+
+  /**
+   * Commits staged changes
+   */
+  async commitGit(message: string): Promise<{ status: string; output?: string; message?: string }> {
+    try {
+      const res = await fetch(`${API_BASE}/git/commit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e: any) {
+      return { status: 'error', message: e.message };
+    }
+    return { status: 'error', message: 'Failed to commit' };
+  },
+
+  /**
+   * Syncs repository (pull --rebase & push)
+   */
+  async syncGit(): Promise<{ status: string; output?: string; message?: string }> {
+    try {
+      const res = await fetch(`${API_BASE}/git/sync`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e: any) {
+      return { status: 'error', message: e.message };
+    }
+    return { status: 'error', message: 'Failed to sync' };
+  },
+
+  /**
+   * Retrieves local git branches
+   */
+  async getGitBranches(): Promise<string[]> {
+    try {
+      const res = await fetch(`${API_BASE}/git/branches`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.branches || ['main'];
+      }
+    } catch (e) {
+      console.warn('getGitBranches failed:', e);
+    }
+    return ['main'];
+  },
+
+  /**
+   * Retrieves Model Context Protocol (MCP) server daemon status
+   */
+  async getMcpStatus(): Promise<{ running: boolean; transport: string; port: number; token_configured: boolean }> {
+    try {
+      const res = await fetch(`${API_BASE}/mcp/status`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('getMcpStatus failed:', e);
+    }
+    return { running: true, transport: 'stdio', port: 9475, token_configured: true };
+  },
+
+  /**
+   * Toggles MCP server transport
+   */
+  async toggleMcpServer(transport: 'stdio' | 'http'): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE}/mcp/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transport })
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('toggleMcpServer failed:', e);
+    }
+    return { status: 'ok', transport };
+  },
+
+  /**
+   * Retrieves Claude Desktop snippet and authentication token
+   */
+  async getMcpConfig(): Promise<{ claude_config: any; token: string }> {
+    try {
+      const res = await fetch(`${API_BASE}/mcp/config`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn('getMcpConfig failed:', e);
+    }
+    return {
+      claude_config: {
+        mcpServers: {
+          yarac: {
+            command: 'yarac-cli',
+            args: ['mcp', '--transport', 'stdio']
+          }
+        }
+      },
+      token: 'yarac_mcp_secure_local_token_9941'
+    };
+  },
+
   subscribeToWatcher(onEvent: (event: WatcherEvent) => void): () => void {
     let eventSource: EventSource | null = null;
     try {

@@ -77,4 +77,48 @@ impl HybridGitEngine {
 
         Ok(String::from_utf8_lossy(&commit_out.stdout).to_string())
     }
+
+    /// Syncs local repository by pulling with rebase and pushing
+    pub fn sync(repo_path: &Path) -> Result<String, GitError> {
+        let pull_out = Command::new("git")
+            .arg("pull")
+            .arg("--rebase")
+            .current_dir(repo_path)
+            .output()?;
+
+        let mut output_str = String::from_utf8_lossy(&pull_out.stdout).to_string();
+
+        let push_out = Command::new("git")
+            .arg("push")
+            .current_dir(repo_path)
+            .output()?;
+
+        output_str.push_str("\n");
+        output_str.push_str(&String::from_utf8_lossy(&push_out.stdout));
+
+        Ok(output_str)
+    }
+
+    /// Lists local git branches
+    pub fn branches(repo_path: &Path) -> Result<Vec<String>, GitError> {
+        let out = Command::new("git")
+            .arg("branch")
+            .arg("--list")
+            .current_dir(repo_path)
+            .output()?;
+
+        if !out.status.success() {
+            let err = String::from_utf8_lossy(&out.stderr);
+            return Err(GitError::CommandFailed(err.to_string()));
+        }
+
+        let text = String::from_utf8_lossy(&out.stdout);
+        let branches = text
+            .lines()
+            .map(|l| l.trim_start_matches('*').trim().to_string())
+            .filter(|b| !b.is_empty())
+            .collect();
+
+        Ok(branches)
+    }
 }

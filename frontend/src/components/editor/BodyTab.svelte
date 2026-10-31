@@ -17,6 +17,14 @@
   let activeMultipartRowIdx = $state<number | null>(null);
   let binarySelectedFileInfo = $state<{ name: string; size?: number; type?: string } | null>(null);
 
+  // GraphQL Studio States
+  let activeGraphqlSubTab = $state<'query' | 'variables'>('query');
+  let isIntrospecting = $state(false);
+  let introspectionSchema = $state<any | null>(null);
+  let showIntrospectionModal = $state(false);
+  let introspectionError = $state<string | null>(null);
+  let typeSearchQuery = $state('');
+
   function switchBodyType(bType: BodyType) {
     setRequestBodyType(req, bType);
     workspaceStore.updateActiveRequest({ body: req.body });
@@ -63,6 +71,120 @@
     } catch (e: any) {
       feedback('Syntax error: ' + (e.message || String(e)));
     }
+  }
+
+  function formatGraphql(target: 'query' | 'vars') {
+    if (target === 'vars') {
+      try {
+        if (!req.body.graphqlVariables?.trim()) return;
+        const parsed = JSON.parse(req.body.graphqlVariables);
+        req.body.graphqlVariables = JSON.stringify(parsed, null, 2);
+        workspaceStore.updateActiveRequest({ body: req.body });
+        feedback('Prettified Variables');
+      } catch (e: any) {
+        feedback('JSON Error: ' + e.message);
+      }
+    } else {
+      // Basic GraphQL Query prettifier
+      const lines = (req.body.rawContent || '').split('\n').map(l => l.trim()).filter(Boolean);
+      let indent = 0;
+      const formatted = lines.map(line => {
+        if (line.startsWith('}') || line.startsWith(')')) indent = Math.max(0, indent - 1);
+        const prefix = '  '.repeat(indent);
+        if (line.endsWith('{') || line.endsWith('(')) indent += 1;
+        return prefix + line;
+      }).join('\n');
+      req.body.rawContent = formatted;
+      workspaceStore.updateActiveRequest({ body: req.body });
+      feedback('Formatted Query');
+    }
+  }
+
+  async function fetchSchemaIntrospection() {
+    isIntrospecting = true;
+    introspectionError = null;
+    try {
+      const introspectionQuery = `
+        query IntrospectionQuery {
+          __schema {
+            queryType { name }
+            mutationType { name }
+            subscriptionType { name }
+            types {
+              name
+              kind
+              description
+              fields(includeDeprecated: true) {
+                name
+                description
+                type {
+                  name
+                  kind
+                  ofType {
+                    name
+                    kind
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      let targetUrl = req.url || 'http://127.0.0.1:9475/graphql';
+      // Substitute active environment variables
+      const env = workspaceStore.currentWorkspace.environments.find(e => e.id === workspaceStore.currentWorkspace.activeEnvironmentId);
+      if (env) {
+        for (const v of env.variables) {
+          if (v.enabled && v.key) {
+            targetUrl = targetUrl.replace(new RegExp(`\\{\\{${v.key}\\}\\}`, 'g'), v.value);
+          }
+        }
+      }
+
+      const res = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query: introspectionQuery })
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      if (json.data?.__schema) {
+        introspectionSchema = json.data.__schema;
+        showIntrospectionModal = true;
+        feedback('Introspection loaded');
+      } else if (json.errors) {
+        throw new Error(json.errors[0]?.message || 'GraphQL Introspection failed');
+      } else {
+        throw new Error('No __schema found in response');
+      }
+    } catch (err: any) {
+      introspectionError = err.message || String(err);
+      feedback('Introspection failed: ' + introspectionError);
+    } finally {
+      isIntrospecting = false;
+    }
+  }
+
+  let filteredSchemaTypes = $derived.by(() => {
+    if (!introspectionSchema?.types) return [];
+    const query = typeSearchQuery.toLowerCase().trim();
+    return introspectionSchema.types.filter((t: any) => {
+      if (!t.name || t.name.startsWith('__')) return false;
+      if (!query) return true;
+      return t.name.toLowerCase().includes(query) || (t.description && t.description.toLowerCase().includes(query));
+    });
+  });
+
+  function insertTypeNameToQuery(typeName: string) {
+    if (!req.body.rawContent) req.body.rawContent = '';
+    req.body.rawContent += `\n  ${typeName} {\n    id\n  }`;
+    workspaceStore.updateActiveRequest({ body: req.body });
+    feedback(`Inserted ${typeName}`);
   }
 
   function feedback(msg: string) {
@@ -131,7 +253,7 @@
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-xs text-apple-body-muted font-medium">Body Type:</span>
       <div class="flex items-center gap-1.5 flex-wrap">
-        {#each ['none', 'json', 'xml', 'text', 'form-urlencoded', 'multipart', 'binary'] as bType}
+        {#each ['none', 'json', 'xml', 'text', 'form-urlencoded', 'multipart', 'binary', 'graphql'] as bType}
           <button
             type="button"
             onclick={() => switchBodyType(bType as BodyType)}
@@ -151,7 +273,27 @@
         </span>
       {/if}
 
-      {#if req.body.type === 'json' || req.body.type === 'xml' || req.body.type === 'text' || req.body.type === 'raw'}
+      {#if req.body.type === 'graphql'}
+        <button
+          type="button"
+          disabled={isIntrospecting}
+          onclick={fetchSchemaIntrospection}
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-primary-on-dark border border-apple-hairline-dark/60 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+          title="Run Schema Introspection Query"
+        >
+          <span>{isIntrospecting ? '⏳' : '🔮'}</span>
+          <span>{isIntrospecting ? 'Fetching Schema...' : 'Schema Introspection'}</span>
+        </button>
+        <button
+          type="button"
+          onclick={() => formatGraphql(activeGraphqlSubTab === 'variables' ? 'vars' : 'query')}
+          class="apple-button-dark-utility px-2.5 py-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-on-dark border border-apple-hairline-dark/60 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+          title="Format GraphQL Query or Variables"
+        >
+          <span>✨</span> Format
+        </button>
+
+      {:else if req.body.type === 'json' || req.body.type === 'xml' || req.body.type === 'text' || req.body.type === 'raw'}
         <button
           type="button"
           onclick={() => formatOrCompressBody('format')}
@@ -224,8 +366,66 @@
     </div>
   </div>
 
+  <!-- GRAPHQL STUDIO -->
+  {#if req.body.type === 'graphql'}
+    <div class="flex-1 flex flex-col border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-black min-h-[300px]">
+      <!-- Sub-Tab Header Bar -->
+      <div class="bg-apple-surface-tile-2 px-3 py-1.5 border-b border-apple-hairline-dark/60 flex items-center justify-between text-[11px] text-apple-body-muted">
+        <div class="flex items-center gap-2">
+          <div class="flex items-center bg-apple-surface-tile-3 rounded-apple-pill p-0.5 border border-apple-hairline-dark">
+            <button
+              type="button"
+              onclick={() => activeGraphqlSubTab = 'query'}
+              class="px-2.5 py-0.5 rounded-apple-pill text-xs font-medium transition-all {activeGraphqlSubTab === 'query' ? 'bg-apple-primary text-white font-semibold' : 'text-apple-body-muted hover:text-white'}"
+            >
+              Query / Mutation
+            </button>
+            <button
+              type="button"
+              onclick={() => activeGraphqlSubTab = 'variables'}
+              class="px-2.5 py-0.5 rounded-apple-pill text-xs font-medium transition-all {activeGraphqlSubTab === 'variables' ? 'bg-apple-primary text-white font-semibold' : 'text-apple-body-muted hover:text-white'}"
+            >
+              Variables (JSON)
+            </button>
+          </div>
+          <span class="text-[10px] px-2 py-0.5 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark font-mono border border-apple-hairline-dark/60">
+            application/json
+          </span>
+        </div>
+
+        {#if introspectionSchema}
+          <button
+            type="button"
+            onclick={() => showIntrospectionModal = true}
+            class="text-[11px] text-apple-primary-on-dark hover:underline flex items-center gap-1 cursor-pointer font-sans"
+          >
+            <span>📖 Browse Schema ({introspectionSchema.types?.length || 0} types)</span>
+          </button>
+        {/if}
+      </div>
+
+      <!-- Editor Content -->
+      {#if activeGraphqlSubTab === 'query'}
+        <textarea
+          bind:value={req.body.rawContent}
+          oninput={() => workspaceStore.updateActiveRequest({ body: req.body })}
+          placeholder={`# Enter GraphQL query or mutation\nquery GetProfile($userId: ID!) {\n  user(id: $userId) {\n    id\n    name\n    email\n  }\n}`}
+          class="flex-1 w-full bg-apple-surface-black p-3 font-mono text-xs text-apple-body-on-dark resize-none focus:outline-none leading-relaxed"
+          spellcheck="false"
+        ></textarea>
+      {:else}
+        <textarea
+          bind:value={req.body.graphqlVariables}
+          oninput={() => workspaceStore.updateActiveRequest({ body: req.body })}
+          placeholder={`{\n  "userId": "usr_99184820"\n}`}
+          class="flex-1 w-full bg-apple-surface-black p-3 font-mono text-xs text-apple-body-on-dark resize-none focus:outline-none leading-relaxed"
+          spellcheck="false"
+        ></textarea>
+      {/if}
+    </div>
+
   <!-- JSON / XML / TEXT EDITOR -->
-  {#if req.body.type === 'json' || req.body.type === 'xml' || req.body.type === 'text' || req.body.type === 'raw'}
+  {:else if req.body.type === 'json' || req.body.type === 'xml' || req.body.type === 'text' || req.body.type === 'raw'}
     <div class="flex-1 flex flex-col border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-black min-h-[260px]">
       <div class="bg-apple-surface-tile-2 px-3 py-1.5 border-b border-apple-hairline-dark/60 flex items-center justify-between text-[11px] text-apple-body-muted">
         <div class="flex items-center gap-2">
@@ -509,3 +709,112 @@
     </div>
   {/if}
 </div>
+
+<!-- Introspection Schema Explorer Modal -->
+{#if showIntrospectionModal && introspectionSchema}
+  <div class="fixed inset-0 z-50 flex items-center justify-center apple-frosted-backdrop p-4 font-sans animate-fade-in">
+    <div class="apple-modal-card w-full max-w-3xl h-[560px] flex flex-col text-apple-body-on-dark shadow-2xl">
+      <!-- Modal Header -->
+      <div class="h-12 border-b border-apple-hairline-dark bg-apple-surface-tile-2 px-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2.5">
+          <span class="text-base text-apple-primary-on-dark">🔮</span>
+          <h3 class="apple-body-strong text-apple-body-on-dark">GraphQL Schema Explorer</h3>
+          <span class="text-[10px] px-2 py-0.5 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark font-mono border border-apple-hairline-dark">
+            {introspectionSchema.types?.length || 0} Types
+          </span>
+        </div>
+        <button
+          type="button"
+          onclick={() => showIntrospectionModal = false}
+          class="apple-button-icon-circular w-7 h-7 text-xs font-bold"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Search & Filters -->
+      <div class="p-3 border-b border-apple-hairline-dark bg-apple-surface-tile-3 flex items-center gap-2 shrink-0">
+        <span class="text-apple-body-muted">🔍</span>
+        <input
+          type="text"
+          bind:value={typeSearchQuery}
+          placeholder="Filter GraphQL types or fields..."
+          class="flex-1 bg-apple-surface-tile-1 border border-apple-hairline-dark rounded px-2.5 py-1 text-xs text-apple-body-on-dark focus:outline-none focus:border-apple-primary font-mono"
+        />
+        {#if typeSearchQuery}
+          <button
+            type="button"
+            onclick={() => typeSearchQuery = ''}
+            class="text-xs text-apple-body-muted hover:text-white"
+          >
+            Clear
+          </button>
+        {/if}
+      </div>
+
+      <!-- Type List -->
+      <div class="flex-1 overflow-auto p-4 space-y-3 bg-apple-surface-tile-1">
+        {#each filteredSchemaTypes as t (t.name)}
+          <div class="border border-apple-hairline-dark rounded-apple-md p-3 bg-apple-surface-tile-2/80 space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs font-bold text-apple-primary-on-dark">{t.name}</span>
+                <span class="apple-micro-legal uppercase px-1.5 py-0.2 rounded bg-apple-surface-tile-3 border border-apple-hairline-dark text-apple-body-muted">
+                  {t.kind}
+                </span>
+              </div>
+              <button
+                type="button"
+                onclick={() => insertTypeNameToQuery(t.name)}
+                class="text-[11px] text-apple-primary-on-dark hover:underline font-medium"
+              >
+                + Insert into Query
+              </button>
+            </div>
+
+            {#if t.description}
+              <p class="text-[11px] text-apple-body-muted leading-relaxed">{t.description}</p>
+            {/if}
+
+            {#if t.fields && t.fields.length > 0}
+              <div class="mt-2 border-t border-apple-hairline-dark/60 pt-2 space-y-1">
+                <span class="apple-micro-legal text-apple-ink-muted-48 uppercase font-bold">Fields:</span>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-1.5 mt-1 font-mono text-[11px]">
+                  {#each t.fields.slice(0, 16) as f}
+                    <div class="flex items-center justify-between p-1.5 rounded bg-apple-surface-tile-3 border border-apple-hairline-dark/40">
+                      <span class="text-apple-body-on-dark truncate">{f.name}</span>
+                      <span class="text-apple-ink-muted-48 text-[10px]">{f.type?.name || f.type?.ofType?.name || f.type?.kind}</span>
+                    </div>
+                  {/each}
+                </div>
+                {#if t.fields.length > 16}
+                  <p class="apple-micro-legal text-apple-ink-muted-48 mt-1 italic">+ {t.fields.length - 16} more fields</p>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/each}
+
+        {#if filteredSchemaTypes.length === 0}
+          <div class="p-8 text-center text-apple-body-muted">
+            No matching GraphQL types found.
+          </div>
+        {/if}
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="h-10 border-t border-apple-hairline-dark bg-apple-surface-tile-2 px-4 flex items-center justify-between shrink-0">
+        <span class="apple-fine-print text-apple-ink-muted-48">
+          Introspection query evaluated against {req.url || 'endpoint'}
+        </span>
+        <button
+          type="button"
+          onclick={() => showIntrospectionModal = false}
+          class="apple-button-dark-utility text-xs px-3 py-1 font-medium"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}

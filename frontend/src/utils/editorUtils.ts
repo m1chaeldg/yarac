@@ -63,6 +63,14 @@ export function setRequestBodyType(req: YaracRequest, bType: BodyType): void {
   if (bType === 'binary' && !req.body.binaryContentType) {
     req.body.binaryContentType = 'application/octet-stream';
   }
+  if (bType === 'graphql') {
+    if (!req.body.rawContent?.trim()) {
+      req.body.rawContent = 'query {\n  __typename\n}';
+    }
+    if (req.body.graphqlVariables === undefined) {
+      req.body.graphqlVariables = '{\n  \n}';
+    }
+  }
 }
 
 export function setAuthType(req: YaracRequest, authType: AuthType): void {

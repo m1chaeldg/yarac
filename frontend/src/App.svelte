@@ -9,6 +9,11 @@
   import EnvironmentModal from './components/EnvironmentModal.svelte';
   import ConflictModal from './components/ConflictModal.svelte';
   import InteropModal from './components/InteropModal.svelte';
+  import CookieJarModal from './components/CookieJarModal.svelte';
+  import GitCommitModal from './components/GitCommitModal.svelte';
+  import McpServerModal from './components/McpServerModal.svelte';
+  import QuickOpenModal from './components/QuickOpenModal.svelte';
+  import RealtimeStreamViewer from './components/RealtimeStreamViewer.svelte';
   import RunnerView from './components/RunnerView.svelte';
   import Resizer from './components/Resizer.svelte';
 
@@ -27,6 +32,36 @@
   let isEnvModalOpen = $state(false);
   let isInteropOpen = $state(false);
   let isConflictOpen = $state(false);
+  let isCookieJarOpen = $state(false);
+  let isGitModalOpen = $state(false);
+  let isMcpModalOpen = $state(false);
+  let isQuickOpen = $state(false);
+  let gitBranch = $state('main');
+  let gitModifiedCount = $state(0);
+  let isQuickSyncing = $state(false);
+
+  async function refreshGitStatus() {
+    try {
+      const st = await backendApi.getGitStatus();
+      gitBranch = st.branch || 'main';
+      gitModifiedCount = (st.modified_files?.length || 0) + (st.untracked_files?.length || 0);
+    } catch (_) {}
+  }
+
+  async function quickSyncGit() {
+    if (isQuickSyncing) return;
+    isQuickSyncing = true;
+    try {
+      await backendApi.syncGit();
+      await refreshGitStatus();
+    } catch (_) {}
+    isQuickSyncing = false;
+  }
+
+  $effect(() => {
+    refreshGitStatus();
+  });
+  let selectedProtocol = $state<'http' | 'ws' | 'sse'>('http');
 
   // Conflict modal sample data
   let conflictFilePath = $state('collections/users/create_user.yarac');
@@ -234,6 +269,15 @@
 
               <button
                 type="button"
+                title="Manage Cookie Jar"
+                onclick={() => isCookieJarOpen = true}
+                class="p-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-amber-400 text-xs font-bold border border-apple-hairline-dark/80"
+              >
+                🍪
+              </button>
+
+              <button
+                type="button"
                 title="Manage Environment Profiles"
                 onclick={() => isEnvModalOpen = true}
                 class="p-1 rounded-apple-sm bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-primary-on-dark text-xs font-bold border border-apple-hairline-dark/80"
@@ -336,7 +380,96 @@
         {/if}
       </div>
     {/if}
+  
+    <!-- Global Bottom Status Bar -->
+    <footer class="h-6 border-t border-apple-hairline-dark/60 bg-apple-surface-tile-2 px-3 flex items-center justify-between text-[11px] font-mono text-apple-body-muted shrink-0 select-none">
+      <div class="flex items-center gap-3">
+        <!-- Git Branch & Changes Pill -->
+        <button
+          type="button"
+          onclick={() => isGitModalOpen = true}
+          class="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
+          title="Open Git Commit & Sync Modal"
+        >
+          <span class="text-xs">🌿</span>
+          <span class="font-bold text-apple-body-on-dark">{gitBranch}</span>
+          {#if gitModifiedCount > 0}
+            <span class="px-1.5 py-0.2 rounded-apple-pill bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/40 text-[10px]">
+              ±{gitModifiedCount}
+            </span>
+          {:else}
+            <span class="text-emerald-400 text-[10px]">✓</span>
+          {/if}
+        </button>
+
+        <span class="text-apple-hairline-dark">|</span>
+
+        <!-- Quick Sync Action -->
+        <button
+          type="button"
+          onclick={quickSyncGit}
+          class="hover:text-apple-primary-on-dark transition-colors flex items-center gap-1 cursor-pointer"
+          title="Pull and Push to remote repository"
+        >
+          <span>{isQuickSyncing ? '⏳' : '⇅'}</span>
+          <span>{isQuickSyncing ? 'Syncing...' : 'Sync'}</span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Offline Invariant Pill -->
+        <span class="flex items-center gap-1 text-[10px] text-emerald-400 font-sans">
+          <span class="w-1.5 h-1.5 rounded-apple-full bg-emerald-400"></span>
+          <span>100% Offline</span>
+        </span>
+
+        <span class="text-apple-hairline-dark">|</span>
+
+        <!-- MCP Server Status Pill -->
+        <button
+          type="button"
+          onclick={() => isMcpModalOpen = true}
+          class="flex items-center gap-1.5 hover:text-white transition-colors text-purple-400 cursor-pointer"
+          title="Open MCP Server Modal"
+        >
+          <span>🤖</span>
+          <span>MCP (Active)</span>
+        </button>
+
+        <span class="text-apple-hairline-dark">|</span>
+
+        <!-- Target Memory -->
+        <span class="text-[10px] text-apple-ink-muted-48">RAM &lt; 100MB</span>
+      </div>
+    </footer>
   </main>
+
+  <!-- Cookie Jar Manager Modal -->
+  <GitCommitModal
+    isOpen={isGitModalOpen}
+    onClose={() => isGitModalOpen = false}
+    onSuccess={() => refreshGitStatus()}
+  />
+
+  <!-- Model Context Protocol (MCP) Server Modal -->
+  <McpServerModal
+    isOpen={isMcpModalOpen}
+    onClose={() => isMcpModalOpen = false}
+  />
+
+  <QuickOpenModal
+    isOpen={isQuickOpen}
+    onClose={() => isQuickOpen = false}
+    onSelectRequest={(reqId) => {
+      workspaceStore.openTab(reqId);
+      activeView = 'studio';
+    }}
+  />
+
+  <CookieJarModal
+    isOpen={isCookieJarOpen}
+    onClose={() => isCookieJarOpen = false}
+  />
 
   <!-- Environment Profiles Manager Modal (Bruno style) -->
   <EnvironmentModal
