@@ -11,7 +11,7 @@ export interface KeyValuePair {
   storageTarget?: 'file' | 'keyring' | 'local';
 }
 
-export type AuthType = 'inherit' | 'none' | 'bearer' | 'basic' | 'apikey' | 'sigv4';
+export type AuthType = 'inherit' | 'none' | 'bearer' | 'basic' | 'apikey' | 'sigv4' | 'oauth2';
 
 export interface AuthConfig {
   type: AuthType;
@@ -121,6 +121,17 @@ export interface CookieItem {
   secure?: boolean;
 }
 
+export interface HistoryItem {
+  id: string;
+  requestId: string;
+  requestName: string;
+  method: string;
+  url: string;
+  statusCode: number;
+  durationMs: number;
+  timestamp: string;
+}
+
 export interface Workspace {
   id: string;
   name: string;
@@ -130,6 +141,7 @@ export interface Workspace {
   globalVariables?: KeyValuePair[];
   settings?: { scrubTaintedSecrets?: boolean };
   cookies?: CookieItem[];
+  history?: HistoryItem[];
   activeEnvironmentId: string;
   openTabIds: string[];
   activeTabId: string;
@@ -1364,8 +1376,56 @@ export class WorkspaceStore {
     }
   }
 
+  closeOtherTabs(requestId: string) {
+    const ws = this.currentWorkspace;
+    if (ws.openTabIds.includes(requestId)) {
+      ws.openTabIds = [requestId];
+      ws.activeTabId = requestId;
+    }
+  }
+
+  closeTabsToTheRight(requestId: string) {
+    const ws = this.currentWorkspace;
+    const idx = ws.openTabIds.indexOf(requestId);
+    if (idx !== -1) {
+      ws.openTabIds = ws.openTabIds.slice(0, idx + 1);
+      if (!ws.openTabIds.includes(ws.activeTabId)) {
+        ws.activeTabId = requestId;
+      }
+    }
+  }
+
+  closeSavedTabs() {
+    const ws = this.currentWorkspace;
+    const dirtyOnly = ws.openTabIds.filter(id => {
+      const r = ws.requests.find(req => req.id === id);
+      return r?.isDirty;
+    });
+    ws.openTabIds = dirtyOnly;
+    if (!ws.openTabIds.includes(ws.activeTabId)) {
+      ws.activeTabId = ws.openTabIds[0] || '';
+    }
+  }
+
   setActiveTab(requestId: string) {
     this.currentWorkspace.activeTabId = requestId;
+  }
+
+  addHistoryItem(item: Omit<HistoryItem, 'id'>) {
+    const ws = this.currentWorkspace;
+    if (!ws.history) ws.history = [];
+    const fullItem: HistoryItem = {
+      id: Math.random().toString(36).substring(2, 9),
+      ...item
+    };
+    ws.history.unshift(fullItem);
+    if (ws.history.length > 100) {
+      ws.history.pop();
+    }
+  }
+
+  clearHistory() {
+    this.currentWorkspace.history = [];
   }
 
   // Request update & DSL sync

@@ -14,8 +14,10 @@
   import McpServerModal from './components/McpServerModal.svelte';
   import QuickOpenModal from './components/QuickOpenModal.svelte';
   import RealtimeStreamViewer from './components/RealtimeStreamViewer.svelte';
+  import GrpcClientViewer from './components/GrpcClientViewer.svelte';
   import RunnerView from './components/RunnerView.svelte';
   import Resizer from './components/Resizer.svelte';
+  import { syncQueryParamsFromUrl, substitutePathVariables } from './utils/urlUtils';
 
   // Svelte 5 runes
   let activeView = $state<'studio' | 'runner'>('studio');
@@ -61,7 +63,7 @@
   $effect(() => {
     refreshGitStatus();
   });
-  let selectedProtocol = $state<'http' | 'ws' | 'sse'>('http');
+  let selectedProtocol = $state<'http' | 'ws' | 'sse' | 'grpc'>('http');
 
   // Conflict modal sample data
   let conflictFilePath = $state('collections/users/create_user.yarac');
@@ -107,7 +109,11 @@
         }
       }
 
-      const report = await backendApi.executeRequest(activeReq, envVars);
+      const reqToExecute = {
+        ...activeReq,
+        url: substitutePathVariables(activeReq.url, activeReq.pathVariables)
+      };
+      const report = await backendApi.executeRequest(reqToExecute, envVars);
       if (activeReq) {
         const bodyStr = report.response_body ?? '';
         activeReq.response = {
@@ -140,6 +146,16 @@
           },
           ...timeline
         ];
+
+        workspaceStore.addHistoryItem({
+          requestId: activeReq.id,
+          requestName: activeReq.name,
+          method: activeReq.method,
+          url: activeReq.url,
+          statusCode: activeReq.response.status,
+          durationMs: activeReq.response.durationMs,
+          timestamp: new Date().toLocaleTimeString()
+        });
       }
     } catch (err: any) {
       if (activeReq) {
@@ -165,7 +181,76 @@
       isSending = false;
     }
   }
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    // If an input or textarea is focused and it is not a modifier shortcut, let it pass
+    const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+    // Ctrl+Enter / Cmd+Enter: Send request
+    if (modKey && e.key === 'Enter') {
+      e.preventDefault();
+      if (activeView === 'studio' && activeReq && !isSending) {
+        triggerSend();
+      }
+      return;
+    }
+
+    // Ctrl+S / Cmd+S: Save active request
+    if (modKey && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      if (activeReq) {
+        workspaceStore.saveActiveRequest();
+      }
+      return;
+    }
+
+    // Ctrl+P / Cmd+P or Ctrl+O: Quick Open
+    if (modKey && (e.key === 'p' || e.key === 'P' || e.key === 'o' || e.key === 'O')) {
+      e.preventDefault();
+      isQuickOpen = !isQuickOpen;
+      return;
+    }
+
+    // Ctrl+N / Cmd+N: New Request
+    if (modKey && (e.key === 'n' || e.key === 'N')) {
+      e.preventDefault();
+      handleCreateNewRequest();
+      return;
+    }
+
+    // Ctrl+W / Cmd+W: Close active tab
+    if (modKey && (e.key === 'w' || e.key === 'W')) {
+      e.preventDefault();
+      if (activeReq) {
+        workspaceStore.closeTab(activeReq.id);
+      }
+      return;
+    }
+
+    // Ctrl+B / Cmd+B: Toggle sidebar
+    if (modKey && (e.key === 'b' || e.key === 'B')) {
+      e.preventDefault();
+      sidebarWidth = sidebarWidth > 0 ? 0 : 260;
+      return;
+    }
+
+    // Ctrl+Tab / Ctrl+Shift+Tab: Cycle open tabs
+    if (modKey && e.key === 'Tab') {
+      e.preventDefault();
+      const openIds = workspaceStore.currentWorkspace.openTabIds;
+      if (openIds.length > 1) {
+        const curIdx = openIds.indexOf(workspaceStore.currentWorkspace.activeTabId);
+        const nextIdx = e.shiftKey
+          ? (curIdx - 1 + openIds.length) % openIds.length
+          : (curIdx + 1) % openIds.length;
+        workspaceStore.setActiveTab(openIds[nextIdx]);
+      }
+      return;
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleGlobalKeydown} />
 
 <div class="flex h-screen w-screen overflow-hidden bg-apple-surface-black font-sans text-apple-body-on-dark select-none">
   <!-- Left Sidebar (Workspace Navigation & Collections) with Resizer -->
@@ -179,6 +264,7 @@
       onOpenEnvManager={() => isEnvModalOpen = true}
       onOpenInterop={() => isInteropOpen = true}
       onOpenConflict={() => isConflictOpen = true}
+      onOpenQuickOpen={() => isQuickOpen = true}
     />
   </aside>
 
@@ -197,15 +283,41 @@
       <!-- Request Studio View -->
       <div class="flex-1 flex flex-col overflow-hidden h-full">
         <!-- Tabs Header Bar -->
-        <TabBar onNewRequest={handleCreateNewRequest} />
+        <TabBar onNewRequest={handleCreateNewRequest} onOpenQuickOpen={() => isQuickOpen = true} />
 
         {#if activeReq}
           <!-- Execution Address Bar -->
           <header class="h-14 border-b border-apple-hairline-dark/60 bg-apple-surface-tile-2 px-4 flex items-center justify-between gap-3 shrink-0">
             <div class="flex-1 flex items-center gap-2">
-              <!-- HTTP Method -->
-              <select
-                bind:value={activeReq.method}
+              <!-- Protocol Selector Toggle (HTTP / WS / SSE) -->
+              <div class="flex items-center rounded-apple-sm bg-apple-surface-tile-3 border border-apple-hairline-dark/80 p-0.5 shrink-0">
+                <button
+                  type="button"
+                  onclick={() => selectedProtocol = 'http'}
+                  class="px-2 py-0.5 text-[10px] font-bold rounded-apple-xs transition-colors {selectedProtocol === 'http' ? 'bg-apple-primary text-white' : 'text-apple-body-muted hover:text-white'}"
+                >
+                  HTTP
+                </button>
+                <button
+                  type="button"
+                  onclick={() => selectedProtocol = 'ws'}
+                  class="px-2 py-0.5 text-[10px] font-bold rounded-apple-xs transition-colors {selectedProtocol === 'ws' ? 'bg-apple-primary text-white' : 'text-apple-body-muted hover:text-white'}"
+                >
+                  WS
+                </button>
+                <button
+                  type="button"
+                  onclick={() => selectedProtocol = 'sse'}
+                  class="px-2 py-0.5 text-[10px] font-bold rounded-apple-xs transition-colors {selectedProtocol === 'sse' ? 'bg-apple-primary text-white' : 'text-apple-body-muted hover:text-white'}"
+                >
+                  SSE
+                </button>
+              </div>
+
+              {#if selectedProtocol === 'http'}
+                <!-- HTTP Method -->
+                <select
+                  bind:value={activeReq.method}
                 onchange={() => workspaceStore.updateActiveRequest({ method: activeReq?.method })}
                 class="bg-apple-surface-tile-3 border border-apple-hairline-dark/80 text-xs font-bold rounded-apple-sm px-2.5 py-1.5 focus:outline-none focus:border-apple-primary font-mono
                   {activeReq.method === 'GET' ? 'text-apple-primary-on-dark' : activeReq.method === 'POST' ? 'text-emerald-400' : activeReq.method === 'PUT' ? 'text-amber-400' : activeReq.method === 'DELETE' ? 'text-rose-400' : 'text-purple-400'}"
@@ -218,40 +330,51 @@
                 <option>HEAD</option>
                 <option>OPTIONS</option>
               </select>
+              {/if}
 
               <!-- URL Input -->
               <div class="flex-1 relative">
                 <input
                   type="text"
                   bind:value={activeReq.url}
-                  placeholder={'Enter request URL or {{base_url}}/path...'}
-                  oninput={() => workspaceStore.updateActiveRequest({ url: activeReq?.url })}
+                  placeholder={selectedProtocol === 'ws' ? 'Enter WebSocket URL (ws:// or wss://)...' : selectedProtocol === 'sse' ? 'Enter SSE Stream URL (http:// or https://)...' : 'Enter request URL or {{base_url}}/path...'}
+                  oninput={() => {
+                    if (activeReq) {
+                      const syncedParams = syncQueryParamsFromUrl(activeReq.url, activeReq.params);
+                      activeReq.params = syncedParams;
+                      workspaceStore.updateActiveRequest({ url: activeReq.url, params: syncedParams });
+                    }
+                  }}
                   class="w-full bg-apple-surface-tile-1 border border-apple-hairline-dark/80 rounded-apple-pill px-4 py-1.5 text-xs font-mono text-apple-body-on-dark placeholder:text-apple-ink-muted-48 focus:outline-none focus:border-apple-primary"
                 />
               </div>
 
-              <!-- Send Button (Apple Pill Button) -->
-              <button
-                type="button"
-                onclick={triggerSend}
-                disabled={isSending}
-                class="apple-button-primary font-semibold text-xs px-5 py-1.5 rounded-apple-pill transition-all flex items-center gap-1.5 shrink-0"
-              >
-                {#if isSending}
-                  <span class="animate-spin text-xs">⟳</span> Sending...
-                {:else}
-                  <span>▶</span> Send
-                {/if}
-              </button>
+              {#if selectedProtocol === 'http'}
+                <!-- Send Button (Apple Pill Button) -->
+                <button
+                  type="button"
+                  onclick={triggerSend}
+                  disabled={isSending}
+                  class="apple-button-primary font-semibold text-xs px-5 py-1.5 rounded-apple-pill transition-all flex items-center gap-1.5 shrink-0"
+                  title="Send Request (Ctrl+Enter / ⌘Enter)"
+                >
+                  {#if isSending}
+                    <span class="animate-spin text-xs">⟳</span> Sending...
+                  {:else}
+                    <span>▶</span> Send
+                  {/if}
+                </button>
 
-              <!-- Save Button -->
-              <button
-                type="button"
-                onclick={() => workspaceStore.saveActiveRequest()}
-                class="apple-button-dark-utility bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-on-dark text-xs font-medium px-3.5 py-1.5 rounded-apple-sm border border-apple-hairline-dark/80 transition-colors"
-              >
-                Save
-              </button>
+                <!-- Save Button -->
+                <button
+                  type="button"
+                  onclick={() => workspaceStore.saveActiveRequest()}
+                  class="apple-button-dark-utility bg-apple-surface-tile-3 hover:bg-apple-surface-tile-1 text-apple-body-on-dark text-xs font-medium px-3.5 py-1.5 rounded-apple-sm border border-apple-hairline-dark/80 transition-colors"
+                  title="Save to disk (Ctrl+S / ⌘S)"
+                >
+                  Save
+                </button>
+              {/if}
             </div>
 
             <!-- Environment Selector & Profile Manager Shortcut -->
@@ -287,7 +410,15 @@
             </div>
           </header>
 
-          <!-- Dual Mode Switcher Bar (Visual UI vs Code .yarac) -->
+          {#if selectedProtocol === 'ws' || selectedProtocol === 'sse'}
+            <!-- Realtime Streaming Studio View -->
+            <div class="flex-1 overflow-hidden p-2">
+              <div class="h-full border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-tile-1">
+                <RealtimeStreamViewer req={activeReq} protocol={selectedProtocol} />
+              </div>
+            </div>
+          {:else}
+            <!-- Dual Mode Switcher Bar (Visual UI vs Code .yarac) -->
           <div class="h-9 border-b border-apple-hairline-dark/60 bg-apple-surface-tile-3 flex items-center justify-between px-4 shrink-0">
             <div class="flex items-center gap-2">
               <button
@@ -364,6 +495,7 @@
               />
             </div>
           </div>
+          {/if}
         {:else}
           <div class="flex-1 flex flex-col items-center justify-center text-apple-ink-muted-48 space-y-3 bg-apple-surface-black">
             <span class="text-4xl">📁</span>

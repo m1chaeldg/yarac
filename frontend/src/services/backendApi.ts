@@ -75,7 +75,25 @@ export const backendApi = {
     // Direct HTTP execution fallback if backend daemon is not attached
     const startTime = performance.now();
     try {
-      const resolvedUrl = req.url.replace(/\{\{([^}]+)\}\}/g, (_, k) => envVars[k] || '');
+      let resolvedUrl = req.url.replace(/\{\{([^}]+)\}\}/g, (_, k) => envVars[k] || '');
+      // Substitute path variables if present
+      if (req.pathVariables && req.pathVariables.length > 0) {
+        for (const pv of req.pathVariables) {
+          if (pv.key && pv.value !== undefined) {
+            resolvedUrl = resolvedUrl.replace(new RegExp(`:${pv.key}\\b`, 'g'), encodeURIComponent(pv.value));
+            resolvedUrl = resolvedUrl.replace(new RegExp(`\\{${pv.key}\\}`, 'g'), encodeURIComponent(pv.value));
+          }
+        }
+      }
+      // Attach enabled query parameters if not already in URL
+      if (req.params && req.params.length > 0 && !resolvedUrl.includes('?')) {
+        const enabledParams = req.params.filter(p => p.enabled && p.key.trim() && !p.key.endsWith('~'));
+        if (enabledParams.length > 0) {
+          const qs = enabledParams.map(p => `${encodeURIComponent(p.key.trim())}=${encodeURIComponent(p.value || '')}`).join('&');
+          resolvedUrl = `${resolvedUrl}?${qs}`;
+        }
+      }
+
       const headersRecord: Record<string, string> = {};
       for (const h of req.headers) {
         if (h.enabled && !h.key.endsWith('~') && h.key.trim()) {
@@ -84,6 +102,16 @@ export const backendApi = {
       }
       if (req.auth.type === 'bearer' && req.auth.bearerToken) {
         headersRecord['Authorization'] = `Bearer ${req.auth.bearerToken}`;
+      } else if (req.auth.type === 'basic' && (req.auth.basicUsername || req.auth.basicPassword)) {
+        const creds = btoa(`${req.auth.basicUsername || ''}:${req.auth.basicPassword || ''}`);
+        headersRecord['Authorization'] = `Basic ${creds}`;
+      } else if (req.auth.type === 'apikey' && req.auth.apiKeyName && req.auth.apiKeyValue) {
+        if (req.auth.apiKeyLocation === 'query') {
+          const sep = resolvedUrl.includes('?') ? '&' : '?';
+          resolvedUrl += `${sep}${encodeURIComponent(req.auth.apiKeyName)}=${encodeURIComponent(req.auth.apiKeyValue)}`;
+        } else {
+          headersRecord[req.auth.apiKeyName] = req.auth.apiKeyValue;
+        }
       }
 
       const fetchRes = await fetch(resolvedUrl, {

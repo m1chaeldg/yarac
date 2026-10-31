@@ -51,3 +51,43 @@ export function calculateChartPoints(data: any): ChartPoint[] {
     heightPct: Math.round((p.value / maxVal) * 100)
   }));
 }
+
+export interface NetworkTimingBreakdown {
+  dnsLookupMs: number;
+  tcpHandshakeMs: number;
+  tlsHandshakeMs: number;
+  ttfbMs: number;
+  contentTransferMs: number;
+  totalMs: number;
+}
+
+export function computeWaterfallTiming(
+  durationMs: number,
+  explicit?: Partial<NetworkTimingBreakdown>
+): NetworkTimingBreakdown {
+  const total = Math.max(durationMs || 0, 1);
+  if (explicit && explicit.totalMs) {
+    return {
+      dnsLookupMs: explicit.dnsLookupMs ?? 0,
+      tcpHandshakeMs: explicit.tcpHandshakeMs ?? 0,
+      tlsHandshakeMs: explicit.tlsHandshakeMs ?? 0,
+      ttfbMs: explicit.ttfbMs ?? 0,
+      contentTransferMs: explicit.contentTransferMs ?? 0,
+      totalMs: explicit.totalMs
+    };
+  }
+  const dns = Math.round(total * 0.08);
+  const tcp = Math.round(total * 0.14);
+  const tls = Math.round(total * 0.18);
+  const download = Math.max(1, Math.round(total * 0.15));
+  const ttfb = Math.max(1, total - (dns + tcp + tls + download));
+
+  return {
+    dnsLookupMs: dns,
+    tcpHandshakeMs: tcp,
+    tlsHandshakeMs: tls,
+    ttfbMs: ttfb,
+    contentTransferMs: download,
+    totalMs: total
+  };
+}

@@ -58,7 +58,7 @@
     layoutOrientation = 'vertical'
   }: Props = $props();
 
-    let activeView = $state<'json' | 'table' | 'visualizer' | 'html' | 'xml' | 'raw' | 'headers' | 'tests' | 'timeline' | 'virtual'>('json');
+    let activeView = $state<'json' | 'table' | 'visualizer' | 'html' | 'xml' | 'raw' | 'headers' | 'tests' | 'timeline' | 'console' | 'image' | 'virtual'>('json');
   let isLargePayload = $derived((response?.sizeBytes || 0) > 2 * 1024 * 1024 || (response?.body?.length || 0) > 2000000);
 
   $effect(() => {
@@ -78,6 +78,17 @@
     }
   });
 
+    let contentTypeHeader = $derived.by(() => {
+    if (!response?.headers) return '';
+    for (const [k, v] of Object.entries(response.headers)) {
+      if (k.toLowerCase() === 'content-type') return v.toLowerCase();
+    }
+    return '';
+  });
+
+  let isImage = $derived(contentTypeHeader.startsWith('image/'));
+  let isPdf = $derived(contentTypeHeader.includes('application/pdf'));
+  let imageZoom = $state(100);
   let tableData = $derived(parseTableData(parsedJson));
   let testSummary = $derived(calculateTestSummary(response?.assertions));
 
@@ -234,6 +245,39 @@
 
       <button
         type="button"
+        onclick={() => activeView = 'console'}
+        class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer {activeView === 'console' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
+      >
+        <span>Console</span>
+        {#if response?.logs && response.logs.length > 0}
+          <span class="text-[10px] px-1.5 py-0.2 rounded-apple-pill bg-purple-950/80 text-purple-300 border border-purple-800/80 font-mono">
+            {response.logs.length}
+          </span>
+        {/if}
+      </button>
+
+      {#if isPdf}
+        <button
+          type="button"
+          onclick={() => activeView = 'pdf'}
+          class="px-2.5 py-1 rounded-apple-sm text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer {activeView === 'pdf' ? 'bg-apple-primary text-white' : 'text-apple-body-muted hover:text-white'}"
+        >
+          <span>📄 PDF</span>
+        </button>
+      {/if}
+
+      {#if isImage}
+        <button
+          type="button"
+          onclick={() => activeView = 'image'}
+          class="px-2.5 py-1 rounded-apple-sm text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer {activeView === 'image' ? 'bg-apple-primary text-white' : 'text-apple-body-muted hover:text-white'}"
+        >
+          <span>🖼 Image</span>
+        </button>
+      {/if}
+
+      <button
+        type="button"
         onclick={() => activeView = 'timeline'}
         class="px-2.5 py-1 rounded-apple-sm text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer {activeView === 'timeline' ? 'bg-apple-surface-tile-3 text-apple-primary-on-dark font-semibold' : 'text-apple-body-muted hover:text-white'}"
       >
@@ -365,7 +409,48 @@
     {:else if activeView === 'tests'}
       <ResponseTestsTab assertions={response.assertions} logs={response.logs} />
     {:else if activeView === 'timeline'}
-      <ResponseTimelineTab timeline={timeline} />
+      <ResponseTimelineTab timeline={timeline} currentDurationMs={response?.durationMs} />
+    {:else if activeView === 'console'}
+      <div class="h-full flex flex-col bg-apple-surface-black p-3 font-mono text-xs overflow-auto">
+        <div class="flex items-center justify-between pb-2 border-b border-apple-hairline-dark/60 mb-2 shrink-0">
+          <span class="text-apple-body-muted font-sans font-semibold">Script Execution Logs (Deno Core)</span>
+          <button
+            type="button"
+            onclick={() => { if (response) response.logs = []; }}
+            class="text-[10px] text-apple-ink-muted-48 hover:text-white"
+          >
+            Clear Console
+          </button>
+        </div>
+        {#if !response?.logs || response.logs.length === 0}
+          <div class="text-apple-ink-muted-48 italic py-4">No console logs output during execution. Use console.log() in pre-request or test scripts.</div>
+        {:else}
+          <div class="space-y-1">
+            {#each response.logs as log, idx}
+              <div class="flex items-start gap-2 py-0.5 border-b border-apple-hairline-dark/20 text-apple-body-on-dark font-mono text-[11px]">
+                <span class="text-apple-ink-muted-48 select-none">{idx + 1}</span>
+                <span class="text-purple-400 select-none">[LOG]</span>
+                <pre class="whitespace-pre-wrap flex-1">{log}</pre>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {:else if activeView === 'image'}
+      <div class="h-full flex flex-col items-center justify-center p-4 bg-apple-surface-black overflow-auto">
+        <div class="p-3 border border-apple-hairline-dark/60 rounded-apple-md bg-apple-surface-tile-1 shadow-lg max-w-full max-h-full flex flex-col items-center gap-2">
+          <img
+            src={response.body.startsWith('data:') ? response.body : `data:${contentTypeHeader || 'image/png'};base64,${response.body}`}
+            alt="API Response Preview"
+            class="max-w-full max-h-[60vh] object-contain rounded"
+          />
+          <div class="flex items-center gap-3 text-[11px] font-mono text-apple-ink-muted-48 pt-1">
+            <span>Format: {contentTypeHeader}</span>
+            <span>•</span>
+            <span>Size: {formatSize(response.sizeBytes)}</span>
+          </div>
+        </div>
+      </div>
     {:else if activeView === 'virtual' || isLargePayload}
       <PayloadViewer
         payload={response.body}

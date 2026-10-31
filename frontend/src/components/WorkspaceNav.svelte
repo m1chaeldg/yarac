@@ -13,9 +13,10 @@
     onOpenInterop: () => void;
     onOpenConflict: () => void;
     onOpenEnvManager: () => void;
+    onOpenQuickOpen?: () => void;
   }
 
-  let { activeView, onSelectView, onOpenInterop, onOpenConflict, onOpenEnvManager }: Props = $props();
+  let { activeView, onSelectView, onOpenInterop, onOpenConflict, onOpenEnvManager, onOpenQuickOpen }: Props = $props();
 
   let isAddingWorkspace = $state(false);
   let newWorkspaceName = $state('');
@@ -23,6 +24,9 @@
   let newCollectionName = $state('');
   let addingSubfolderParentId = $state<string | null>(null);
   let newSubfolderName = $state('');
+  let navView = $state<'collections' | 'history'>('collections');
+  let searchQuery = $state('');
+  let filterMethod = $state<string>('ALL');
 
   // Context Menu & Modal States
   let contextMenu = $state<{ x: number; y: number; req: YaracRequest; col: any } | null>(null);
@@ -64,6 +68,47 @@
     const colIds = new Set(cols.map(c => c.id));
     const rootCols = cols.filter(c => !c.parentId || !colIds.has(c.parentId));
     return rootCols.map(rc => buildNode(rc, 0));
+  });
+
+    let filteredCollectionTree = $derived.by(() => {
+    const q = searchQuery.toLowerCase().trim();
+    const methodFilter = filterMethod.toUpperCase();
+
+    if (!q && methodFilter === 'ALL') {
+      return collectionTree;
+    }
+
+    function filterNode(node: TreeNode): TreeNode | null {
+      const matchingReqs = node.requests.filter(r => {
+        const matchesQuery = !q || r.name.toLowerCase().includes(q) || r.url.toLowerCase().includes(q);
+        const matchesMethod = methodFilter === 'ALL' || r.method.toUpperCase() === methodFilter;
+        return matchesQuery && matchesMethod;
+      });
+
+      const matchingSubfolders: TreeNode[] = [];
+      for (const sf of node.subfolders) {
+        const filteredSf = filterNode(sf);
+        if (filteredSf) matchingSubfolders.push(filteredSf);
+      }
+
+      const colNameMatches = !q || node.col.name.toLowerCase().includes(q);
+
+      if (matchingReqs.length > 0 || matchingSubfolders.length > 0 || (colNameMatches && methodFilter === 'ALL')) {
+        return {
+          ...node,
+          requests: matchingReqs,
+          subfolders: matchingSubfolders
+        };
+      }
+      return null;
+    }
+
+    const results: TreeNode[] = [];
+    for (const root of collectionTree) {
+      const f = filterNode(root);
+      if (f) results.push(f);
+    }
+    return results;
   });
 
   // Collapsible Tree View States
@@ -632,8 +677,70 @@
       </button>
     </div>
 
-    <!-- Collections & Requests Tree -->
+    <!-- Sidebar Nav Mode Switcher (Collections vs History) -->
+    <div class="px-2 pt-2 flex items-center gap-1">
+      <div class="flex-1 flex rounded-apple-sm bg-apple-surface-tile-2 border border-apple-hairline-dark/80 p-0.5">
+        <button
+          type="button"
+          onclick={() => navView = 'collections'}
+          class="flex-1 py-1 text-[11px] font-semibold rounded-apple-xs transition-colors {navView === 'collections' ? 'bg-apple-primary text-white' : 'text-apple-body-muted hover:text-white cursor-pointer'}"
+        >
+          📁 Collections
+        </button>
+        <button
+          type="button"
+          onclick={() => navView = 'history'}
+          class="flex-1 py-1 text-[11px] font-semibold rounded-apple-xs transition-colors flex items-center justify-center gap-1 {navView === 'history' ? 'bg-apple-primary text-white' : 'text-apple-body-muted hover:text-white cursor-pointer'}"
+        >
+          <span>🕒 History</span>
+          {#if (workspaceStore.currentWorkspace.history || []).length > 0}
+            <span class="text-[9px] px-1 rounded-apple-pill bg-apple-surface-tile-3 text-apple-primary-on-dark font-mono">
+              {(workspaceStore.currentWorkspace.history || []).length}
+            </span>
+          {/if}
+        </button>
+      </div>
+    </div>
+
+    {#if navView === 'collections'}
+      <!-- Quick Search & Filter Controls -->
+      <div class="px-2 pt-2 space-y-1.5">
+        <div class="relative">
+          <input
+            type="text"
+            bind:value={searchQuery}
+            placeholder="Search requests..."
+            class="w-full bg-apple-surface-tile-2 border border-apple-hairline-dark/80 rounded-apple-pill px-3 py-1 text-xs text-apple-body-on-dark placeholder:text-apple-ink-muted-48 focus:outline-none focus:border-apple-primary pr-6"
+          />
+          {#if searchQuery}
+            <button
+              type="button"
+              onclick={() => searchQuery = ''}
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-apple-ink-muted-48 hover:text-white"
+            >
+              ✕
+            </button>
+          {/if}
+        </div>
+
+        <!-- Method Filter Chips -->
+        <div class="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 text-[9px] font-mono">
+          {#each ['ALL', 'GET', 'POST', 'PUT', 'DELETE'] as m}
+            <button
+              type="button"
+              onclick={() => filterMethod = m}
+              class="px-1.5 py-0.5 rounded border transition-colors cursor-pointer {filterMethod === m ? 'bg-apple-primary border-apple-primary text-white font-bold' : 'bg-apple-surface-tile-2 border-apple-hairline-dark/60 text-apple-ink-muted-48 hover:text-white'}"
+            >
+              {m}
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
+    <!-- Content Area (Tree or History) -->
     <div class="flex-1 overflow-y-auto p-2 space-y-3">
+      {#if navView === 'collections'}
       <div class="flex items-center justify-between px-1">
         <span class="apple-micro-legal font-bold text-apple-ink-muted-48 uppercase tracking-wider">Collections</span>
         <div class="flex items-center gap-1">
@@ -927,9 +1034,69 @@
         </div>
       {/snippet}
 
-      {#each collectionTree as rootNode (rootNode.col.id)}
+      {#each filteredCollectionTree as rootNode (rootNode.col.id)}
         {@render renderTreeNode(rootNode)}
       {/each}
+
+      {:else}
+        <!-- Execution History List -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <span class="apple-micro-legal font-bold text-apple-ink-muted-48 uppercase tracking-wider">Recent Executions</span>
+            {#if (workspaceStore.currentWorkspace.history || []).length > 0}
+              <button
+                type="button"
+                onclick={() => workspaceStore.clearHistory()}
+                class="apple-micro-legal text-rose-400 hover:underline cursor-pointer"
+              >
+                Clear
+              </button>
+            {/if}
+          </div>
+
+          {#if !(workspaceStore.currentWorkspace.history && workspaceStore.currentWorkspace.history.length > 0)}
+            <div class="p-4 text-center text-apple-ink-muted-48 text-[11px] italic font-sans">
+              No requests executed yet. Run any request to record history.
+            </div>
+          {:else}
+            <div class="space-y-1">
+              {#each workspaceStore.currentWorkspace.history as item (item.id)}
+                <div
+                  role="button"
+                  tabindex="0"
+                  onclick={() => {
+                    workspaceStore.openTab(item.requestId);
+                    onSelectView('studio');
+                  }}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter') {
+                      workspaceStore.openTab(item.requestId);
+                      onSelectView('studio');
+                    }
+                  }}
+                  class="p-2 rounded-apple-sm bg-apple-surface-tile-2/60 hover:bg-apple-surface-tile-3 border border-apple-hairline-dark/40 cursor-pointer transition-colors space-y-1 text-left"
+                >
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="text-[9px] font-bold px-1.5 py-0.2 rounded-apple-pill uppercase font-mono {item.method === 'GET' ? 'text-apple-primary-on-dark bg-apple-surface-tile-1' : item.method === 'POST' ? 'text-emerald-400 bg-apple-surface-tile-1' : item.method === 'PUT' ? 'text-amber-400 bg-apple-surface-tile-1' : 'text-rose-400 bg-apple-surface-tile-1'}">
+                        {item.method}
+                      </span>
+                      <span class="text-xs font-semibold text-apple-body-on-dark truncate font-sans">{item.requestName}</span>
+                    </div>
+                    <span class="text-[10px] font-mono {item.statusCode >= 200 && item.statusCode < 400 ? 'text-emerald-400' : 'text-rose-400'} font-bold">
+                      {item.statusCode}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between text-[10px] font-mono text-apple-ink-muted-48">
+                    <span class="truncate max-w-[150px]">{item.url}</span>
+                    <span>{item.durationMs}ms</span>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
 
       <!-- Drop target for moving nested folders back to root level -->
       {#if draggedColId}

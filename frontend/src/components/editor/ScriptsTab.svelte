@@ -1,6 +1,7 @@
 <script lang="ts">
   import { workspaceStore, type YaracRequest } from '../../stores/workspace.svelte';
   import { SCRIPT_SNIPPETS, SCRIPT_PLACEHOLDERS, appendSnippet } from '../../utils/editorUtils';
+  import CodeEditor from '../CodeEditor.svelte';
 
   interface Props {
     req: YaracRequest;
@@ -17,6 +18,17 @@
       req.scripts.preRequest = appendSnippet(req.scripts.preRequest, snippet);
     } else {
       req.scripts.postResponse = appendSnippet(req.scripts.postResponse, snippet);
+    }
+    workspaceStore.updateActiveRequest({ scripts: req.scripts });
+  }
+
+  function handleContentChange(val: string) {
+    if (!req) return;
+    if (!req.scripts) req.scripts = { preRequest: '', postResponse: '' };
+    if (activeScriptType === 'preRequest') {
+      req.scripts.preRequest = val;
+    } else {
+      req.scripts.postResponse = val;
     }
     workspaceStore.updateActiveRequest({ scripts: req.scripts });
   }
@@ -69,35 +81,29 @@
   </div>
 
   <div class="flex-1 flex flex-col border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-black min-h-[220px]">
-    <div class="bg-apple-surface-tile-2 px-3 py-1.5 border-b border-apple-hairline-dark/60 flex items-center justify-between text-[11px] text-apple-body-muted">
+    <div class="bg-apple-surface-tile-2 px-3 py-1.5 border-b border-apple-hairline-dark/60 flex items-center justify-between text-[11px] text-apple-body-muted shrink-0">
       <span class="font-mono text-apple-primary-on-dark">
         {activeScriptType === 'preRequest' ? '// Runs before HTTP request is dispatched' : '// Runs immediately after HTTP response is received'}
       </span>
       <span class="text-apple-ink-muted-48 font-mono text-[10px]">Async/Await Default • Isolated Deno Core (5000ms max)</span>
     </div>
 
-    {#if activeScriptType === 'preRequest'}
-      <textarea
-        value={req.scripts?.preRequest || ''}
-        oninput={(e) => {
-          if (!req.scripts) req.scripts = { preRequest: '', postResponse: '' };
-          req.scripts.preRequest = (e.target as HTMLTextAreaElement).value;
-          workspaceStore.updateActiveRequest({ scripts: req.scripts });
-        }}
-        placeholder={SCRIPT_PLACEHOLDERS.preRequest}
-        class="flex-1 w-full bg-apple-surface-black p-3 font-mono text-xs text-apple-body-on-dark resize-none focus:outline-none"
-      ></textarea>
-    {:else}
-      <textarea
-        value={req.scripts?.postResponse || ''}
-        oninput={(e) => {
-          if (!req.scripts) req.scripts = { preRequest: '', postResponse: '' };
-          req.scripts.postResponse = (e.target as HTMLTextAreaElement).value;
-          workspaceStore.updateActiveRequest({ scripts: req.scripts });
-        }}
-        placeholder={SCRIPT_PLACEHOLDERS.postResponse}
-        class="flex-1 w-full bg-apple-surface-black p-3 font-mono text-xs text-apple-body-on-dark resize-none focus:outline-none"
-      ></textarea>
-    {/if}
+    <div class="flex-1 overflow-hidden">
+      {#if activeScriptType === 'preRequest'}
+        <CodeEditor
+          content={req.scripts?.preRequest || ''}
+          language="javascript"
+          placeholder={SCRIPT_PLACEHOLDERS.preRequest}
+          onchange={handleContentChange}
+        />
+      {:else}
+        <CodeEditor
+          content={req.scripts?.postResponse || ''}
+          language="javascript"
+          placeholder={SCRIPT_PLACEHOLDERS.postResponse}
+          onchange={handleContentChange}
+        />
+      {/if}
+    </div>
   </div>
 </div>

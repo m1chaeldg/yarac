@@ -1,11 +1,15 @@
 <script lang="ts">
   import { workspaceStore, type YaracRequest } from '../stores/workspace.svelte';
+  import ContextMenu, { type ContextMenuItem } from './ContextMenu.svelte';
 
   interface Props {
     onNewRequest?: () => void;
+    onOpenQuickOpen?: () => void;
   }
 
-  let { onNewRequest }: Props = $props();
+  let { onNewRequest, onOpenQuickOpen }: Props = $props();
+
+  let tabContextMenu = $state<{ x: number; y: number; reqId: string } | null>(null);
 
   function getMethodColor(method: string): string {
     switch (method) {
@@ -26,6 +30,49 @@
     e.stopPropagation();
     workspaceStore.closeTab(reqId);
   }
+
+  function getTabContextMenuItems(reqId: string): ContextMenuItem[] {
+    return [
+      {
+        id: 'close',
+        label: 'Close Tab',
+        shortcut: 'Ctrl+W',
+        action: () => workspaceStore.closeTab(reqId)
+      },
+      {
+        id: 'close-others',
+        label: 'Close Other Tabs',
+        action: () => workspaceStore.closeOtherTabs(reqId)
+      },
+      {
+        id: 'close-right',
+        label: 'Close Tabs to the Right',
+        action: () => workspaceStore.closeTabsToTheRight(reqId)
+      },
+      {
+        id: 'close-saved',
+        label: 'Close Unmodified Tabs',
+        action: () => workspaceStore.closeSavedTabs()
+      },
+      {
+        id: 'sep',
+        label: '',
+        separator: true,
+        action: () => {}
+      },
+      {
+        id: 'duplicate',
+        label: 'Duplicate Request Tab',
+        shortcut: 'Ctrl+D',
+        action: () => {
+          const cloned = workspaceStore.duplicateRequest(reqId);
+          if (cloned) {
+            workspaceStore.openTab(cloned.id);
+          }
+        }
+      }
+    ];
+  }
 </script>
 
 <div class="h-10 border-b border-apple-hairline-dark/60 bg-apple-surface-black flex items-center justify-between px-2 overflow-x-auto select-none no-scrollbar">
@@ -38,6 +85,17 @@
         aria-selected={isActive}
         onclick={() => handleTabClick(req.id)}
         onkeydown={(e) => e.key === 'Enter' && handleTabClick(req.id)}
+        onauxclick={(e) => {
+          if (e.button === 1) {
+            e.preventDefault();
+            workspaceStore.closeTab(req.id);
+          }
+        }}
+        oncontextmenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          tabContextMenu = { x: e.clientX, y: e.clientY, reqId: req.id };
+        }}
         class="group relative flex items-center gap-2 px-3 py-1.5 rounded-t-apple-sm text-xs font-medium cursor-pointer transition-all border-t border-x border-b-transparent shrink-0
           {isActive
             ? 'bg-apple-surface-tile-2 text-apple-body-on-dark border-apple-hairline-dark/80 -mb-px z-10'
@@ -74,12 +132,34 @@
     <button
       type="button"
       onclick={onNewRequest}
-      title="Create new request in active collection"
+      title="Create new request in active collection (Ctrl+N / ⌘N)"
       class="p-1.5 rounded-apple-full hover:bg-apple-surface-tile-2 text-apple-body-muted hover:text-apple-primary-on-dark transition-colors ml-1"
     >
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
     </button>
+
+    <!-- Quick Open Search Button -->
+    <button
+      type="button"
+      onclick={onOpenQuickOpen}
+      title="Quick Open Palette (Ctrl+P / ⌘P)"
+      class="p-1.5 rounded-apple-full hover:bg-apple-surface-tile-2 text-apple-body-muted hover:text-apple-primary-on-dark transition-colors ml-0.5"
+    >
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    </button>
   </div>
 </div>
+
+<!-- Tab Context Menu -->
+{#if tabContextMenu}
+  <ContextMenu
+    x={tabContextMenu.x}
+    y={tabContextMenu.y}
+    items={getTabContextMenuItems(tabContextMenu.reqId)}
+    onClose={() => tabContextMenu = null}
+  />
+{/if}

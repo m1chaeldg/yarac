@@ -1,6 +1,7 @@
 <script lang="ts">
   import { workspaceStore, type YaracRequest } from '../../stores/workspace.svelte';
   import { ASSERT_SNIPPETS, SCRIPT_PLACEHOLDERS, appendSnippet } from '../../utils/editorUtils';
+  import CodeEditor from '../CodeEditor.svelte';
 
   interface Props {
     req: YaracRequest;
@@ -13,6 +14,13 @@
     req.assert = appendSnippet(req.assert, snippet);
     workspaceStore.updateActiveRequest({ assert: req.assert });
   }
+
+  function handleContentChange(val: string) {
+    if (req) {
+      req.assert = val;
+      workspaceStore.updateActiveRequest({ assert: req.assert });
+    }
+  }
 </script>
 
 <div class="h-full flex flex-col space-y-3 font-sans">
@@ -20,7 +28,7 @@
     <div>
       <span class="text-[11px] font-semibold text-apple-body-muted uppercase tracking-wider">JavaScript Assertions</span>
       <p class="text-[11px] text-apple-ink-muted-48">
-        Lightweight assertion statements evaluated directly on the response. Test results display in the Response tab.
+        Lightweight assertion statements evaluated directly on the response via <code class="text-apple-primary-on-dark font-mono">deno_core</code>.
       </p>
     </div>
 
@@ -39,18 +47,17 @@
   </div>
 
   <div class="flex-1 flex flex-col border border-apple-hairline-dark/60 rounded-apple-lg overflow-hidden bg-apple-surface-black min-h-[220px]">
-    <div class="bg-apple-surface-tile-2 px-3 py-1.5 border-b border-apple-hairline-dark/60 flex items-center justify-between text-[11px] text-apple-body-muted">
+    <div class="bg-apple-surface-tile-2 px-3 py-1.5 border-b border-apple-hairline-dark/60 flex items-center justify-between text-[11px] text-apple-body-muted shrink-0">
       <span class="font-mono text-apple-primary-on-dark">// Available matchers: toBe, toEqual, toBeDefined, toBeNull, toBeGreaterThan, toContain</span>
       <span class="text-apple-ink-muted-48 font-mono text-[10px]">Async/Await Default • Live Assertions</span>
     </div>
-    <textarea
-      value={req.assert || ''}
-      oninput={(e) => {
-        req.assert = (e.target as HTMLTextAreaElement).value;
-        workspaceStore.updateActiveRequest({ assert: req.assert });
-      }}
-      placeholder={SCRIPT_PLACEHOLDERS.assert}
-      class="flex-1 w-full bg-apple-surface-black p-3 font-mono text-xs text-apple-body-on-dark resize-none focus:outline-none"
-    ></textarea>
+    <div class="flex-1 overflow-hidden">
+      <CodeEditor
+        content={req.assert || ''}
+        language="javascript"
+        placeholder={SCRIPT_PLACEHOLDERS.assert}
+        onchange={handleContentChange}
+      />
+    </div>
   </div>
 </div>

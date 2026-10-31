@@ -10,6 +10,7 @@
     collapseVersion: number;
     defaultExpanded?: boolean;
     isLast?: boolean;
+    searchQuery?: string;
   }
 
   let {
@@ -19,7 +20,8 @@
     expandVersion,
     collapseVersion,
     defaultExpanded = true,
-    isLast = true
+    isLast = true,
+    searchQuery = ''
   }: Props = $props();
 
   let valType = $derived<JsonType>(getJsonType(value));
@@ -46,11 +48,35 @@
     }
   });
 
+  $effect(() => {
+    if (searchQuery && isContainer) {
+      try {
+        if (JSON.stringify(value).toLowerCase().includes(searchQuery.toLowerCase())) {
+          isExpanded = true;
+        }
+      } catch {}
+    }
+  });
+
   function toggle() {
     if (isContainer) {
       isExpanded = !isExpanded;
     }
   }
+
+  function getHighlightParts(text: string, query: string) {
+    if (!query) return null;
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return null;
+    return {
+      before: text.substring(0, idx),
+      match: text.substring(idx, idx + query.length),
+      after: text.substring(idx + query.length)
+    };
+  }
+
+  let keyParts = $derived(keyName !== null && searchQuery ? getHighlightParts(String(keyName), searchQuery) : null);
+  let valParts = $derived(!isContainer && searchQuery ? getHighlightParts(formatPrimitiveValue(value, valType), searchQuery) : null);
 </script>
 
 <div class="font-mono text-xs leading-relaxed select-text">
@@ -73,7 +99,11 @@
 
       <!-- Key Name if applicable -->
       {#if keyName !== null && keyName !== undefined}
-        <span class="text-apple-primary-on-dark font-medium font-mono">{keyName}:</span>
+        {#if keyParts}
+          <span class="text-apple-primary-on-dark font-medium font-mono">{keyParts.before}<mark class="bg-amber-400/40 text-amber-200 px-0.5 rounded">{keyParts.match}</mark>{keyParts.after}:</span>
+        {:else}
+          <span class="text-apple-primary-on-dark font-medium font-mono">{keyName}:</span>
+        {/if}
       {/if}
 
       <!-- Open Bracket / Summary -->
@@ -113,6 +143,7 @@
               {collapseVersion}
               {defaultExpanded}
               isLast={idx === value.length - 1}
+              {searchQuery}
             />
           {/each}
         {:else if valType === 'object' && value}
@@ -125,6 +156,7 @@
               {collapseVersion}
               {defaultExpanded}
               isLast={idx === Object.keys(value).length - 1}
+              {searchQuery}
             />
           {/each}
         {/if}
@@ -143,19 +175,29 @@
       <span class="w-3.5 inline-block"></span>
 
       {#if keyName !== null && keyName !== undefined}
-        <span class="text-apple-primary-on-dark font-medium font-mono">{keyName}:</span>
+        {#if keyParts}
+          <span class="text-apple-primary-on-dark font-medium font-mono">{keyParts.before}<mark class="bg-amber-400/40 text-amber-200 px-0.5 rounded">{keyParts.match}</mark>{keyParts.after}:</span>
+        {:else}
+          <span class="text-apple-primary-on-dark font-medium font-mono">{keyName}:</span>
+        {/if}
       {/if}
 
-      {#if valType === 'string'}
-        <span class="text-emerald-400 break-all">{formatPrimitiveValue(value, valType)}</span>
-      {:else if valType === 'number'}
-        <span class="text-sky-400 font-semibold">{formatPrimitiveValue(value, valType)}</span>
-      {:else if valType === 'boolean'}
-        <span class="text-amber-400 font-bold">{formatPrimitiveValue(value, valType)}</span>
-      {:else if valType === 'null'}
-        <span class="text-apple-ink-muted-48 italic font-semibold">{formatPrimitiveValue(value, valType)}</span>
+      {#if valParts}
+        <span class="break-all {valType === 'string' ? 'text-emerald-400' : valType === 'number' ? 'text-sky-400' : valType === 'boolean' ? 'text-amber-400' : 'text-apple-ink-muted-48'}">
+          {valParts.before}<mark class="bg-amber-400/40 text-amber-200 px-0.5 rounded">{valParts.match}</mark>{valParts.after}
+        </span>
       {:else}
-        <span class="text-apple-body-on-dark">{formatPrimitiveValue(value, valType)}</span>
+        {#if valType === 'string'}
+          <span class="text-emerald-400 break-all">{formatPrimitiveValue(value, valType)}</span>
+        {:else if valType === 'number'}
+          <span class="text-sky-400 font-semibold">{formatPrimitiveValue(value, valType)}</span>
+        {:else if valType === 'boolean'}
+          <span class="text-amber-400 font-bold">{formatPrimitiveValue(value, valType)}</span>
+        {:else if valType === 'null'}
+          <span class="text-apple-ink-muted-48 italic font-semibold">{formatPrimitiveValue(value, valType)}</span>
+        {:else}
+          <span class="text-apple-body-on-dark">{formatPrimitiveValue(value, valType)}</span>
+        {/if}
       {/if}
 
       {#if !isLast}
